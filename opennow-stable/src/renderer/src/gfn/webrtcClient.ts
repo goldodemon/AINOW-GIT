@@ -45,6 +45,10 @@ interface OfferSettings {
   resolution: string;
   fps: number;
   maxBitrateKbps: number;
+  frameBufferDepth?: number;
+  udpPacketPacing?: boolean;
+  integerScaling?: boolean;
+  targetRefreshRate?: number;
 }
 
 interface RiInputCapabilities {
@@ -3624,6 +3628,10 @@ export class GfnWebRtcClient {
       codec: effectiveCodec,
       colorQuality: settings.colorQuality,
       credentials,
+      frameBufferDepth: settings.frameBufferDepth,
+      udpPacketPacing: settings.udpPacketPacing,
+      integerScaling: settings.integerScaling,
+      targetRefreshRate: settings.targetRefreshRate,
     });
 
     await window.openNow.sendAnswer({

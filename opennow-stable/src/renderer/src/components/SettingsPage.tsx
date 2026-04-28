@@ -19,6 +19,8 @@ import type {
     AppUpdaterState,
     StreamQualityPreset,
     ReflexMode,
+    FrameBufferDepth,
+    ForceCodecMode,
   } from "@shared/gfn";
 import {
   colorQualityRequiresHevc,
@@ -241,6 +243,28 @@ const REFLEX_OPTIONS: { value: ReflexMode; label: string; description: string }[
 const RESOLUTION_SCALE_MIN = 50;
 const RESOLUTION_SCALE_MAX = 200;
 const RESOLUTION_SCALE_STEP = 10;
+
+const FRAME_BUFFER_OPTIONS: { value: FrameBufferDepth; label: string; description: string }[] = [
+  { value: 0, label: "0 Frames", description: "Lowest latency — may micro-stutter" },
+  { value: 1, label: "1 Frame", description: "Balanced (default)" },
+  { value: 2, label: "2 Frames", description: "Smoothest — adds a few ms of lag" },
+];
+
+const FORCE_CODEC_OPTIONS: { value: ForceCodecMode; label: string; description: string }[] = [
+  { value: "auto", label: "Auto", description: "Let the client decide" },
+  { value: "H264", label: "H.264", description: "Lowest decode latency on older CPUs" },
+  { value: "H265", label: "HEVC", description: "Better quality at same bitrate" },
+  { value: "AV1", label: "AV1", description: "Best efficiency, needs modern GPU decoder" },
+];
+
+const SUPER_SAMPLING_RESOLUTIONS = [
+  { value: "2560x1440", label: "1440p" },
+  { value: "3840x2160", label: "4K" },
+  { value: "5120x2880", label: "5K" },
+];
+
+const REFRESH_RATE_OPTIONS = [0, 60, 75, 120, 144, 165, 240];
+const FPS_LIMITER_OPTIONS = [0, 30, 60, 75, 120, 144, 240];
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
 const shortcutExamples = "Examples: F3, Ctrl+Shift+Q, Ctrl+Shift+K";
@@ -2058,7 +2082,7 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                     type="range"
                     className="settings-slider"
                     min={5}
-                    max={150}
+                    max={settings.lanMode ? 200 : 150}
                     step={5}
                     value={settings.maxBitrateMbps}
                     onChange={(e) => handleChange("maxBitrateMbps", parseInt(e.target.value, 10))}
@@ -2171,6 +2195,269 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                   </div>
                   <span className="settings-subtle-hint">
                     Enable HDR streaming for supported displays. Note: may cause resolution downscaling on some servers. Requires HDR-capable display and 10-bit color depth.
+                  </span>
+                </div>
+
+                {/* ── Network & Buffer Management ──────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Network &amp; Buffer Management</h3>
+
+                {/* Frame Buffer Depth */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Frame Buffer Size (Queue Depth)</label>
+                  <div className="settings-chip-row">
+                    {FRAME_BUFFER_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`settings-chip ${settings.frameBufferDepth === opt.value ? "active" : ""}`}
+                        onClick={() => handleChange("frameBufferDepth", opt.value)}
+                        title={opt.description}
+                      >
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Fewer frames = lower input lag. More frames = smoother playback. 1 frame is recommended for most connections.
+                  </span>
+                </div>
+
+                {/* UDP Packet Pacing */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">UDP Packet Pacing</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.udpPacketPacing}
+                        onChange={(e) => handleChange("udpPacketPacing", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Smooths out UDP packet bursts. Recommended ON for Wi-Fi. Turn OFF for lowest latency on wired connections.
+                  </span>
+                </div>
+
+                {/* Force Codec */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Force Codec</label>
+                  <div className="settings-chip-row">
+                    {FORCE_CODEC_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`settings-chip ${settings.forceCodec === opt.value ? "active" : ""}`}
+                        onClick={() => handleChange("forceCodec", opt.value)}
+                        title={opt.description}
+                      >
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Auto lets the client negotiate. H.264 has lowest decode latency on older CPUs. HEVC/AV1 give better quality-per-bit.
+                  </span>
+                </div>
+
+                {/* ── Ultra Settings ──────────────────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Ultra Settings</h3>
+
+                {/* LAN Mode */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">
+                        LAN Mode (Unlock Bitrate)
+                        <span className="settings-inline-badge settings-inline-badge--beta">Advanced</span>
+                      </span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.lanMode}
+                        onChange={(e) => handleChange("lanMode", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Unlocks bitrate ceiling to 200 Mbps. For 4K/240Hz on fast wired connections. Overkill for most — eliminates macroblocking in dark scenes.
+                  </span>
+                </div>
+
+                {/* Super-Sampling */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">
+                        Internal Super-Sampling
+                        <span className="settings-inline-badge settings-inline-badge--beta">Advanced</span>
+                      </span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.superSampling}
+                        onChange={(e) => handleChange("superSampling", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  {settings.superSampling && (
+                    <div className="settings-chip-row" style={{ marginTop: 6 }}>
+                      {SUPER_SAMPLING_RESOLUTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          className={`settings-chip ${settings.superSamplingResolution === opt.value ? "active" : ""}`}
+                          onClick={() => handleChange("superSamplingResolution", opt.value)}
+                        >
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <span className="settings-subtle-hint">
+                    Request a higher-res stream than your display, downscaled locally. Acts as massive anti-aliasing boost. Uses more bandwidth.
+                  </span>
+                </div>
+
+                {/* ── Telemetry Overlays ──────────────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Technical Telemetry</h3>
+
+                {/* Frame-Time Graph */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Frame-Time Graph</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.showFrameTimeGraph}
+                        onChange={(e) => handleChange("showFrameTimeGraph", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Scrolling graph of frame-time variance and network jitter. Helps identify whether stutter is from ISP or GFN server.
+                  </span>
+                </div>
+
+                {/* Decode Latency Monitor */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Decode Latency Monitor</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.showDecodeLatency}
+                        onChange={(e) => handleChange("showDecodeLatency", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Shows how long your local hardware takes to decode each frame. High values mean your decoder is the bottleneck.
+                  </span>
+                </div>
+
+                {/* Network Jitter */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Network Jitter Indicator</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.showNetworkJitter}
+                        onChange={(e) => handleChange("showNetworkJitter", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Displays network jitter (packet arrival variance). High jitter indicates unstable connection regardless of bandwidth.
+                  </span>
+                </div>
+
+                {/* ── Display Control ─────────────────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Display Control</h3>
+
+                {/* Integer Scaling */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Integer Scaling</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.integerScaling}
+                        onChange={(e) => handleChange("integerScaling", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Pixel-perfect scaling — keeps pixels sharp and blocky instead of bilinear-smeared. Best for custom/low resolutions.
+                  </span>
+                </div>
+
+                {/* Target Refresh Rate */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">Target Refresh Rate</label>
+                    <span className="settings-value-badge">{settings.targetRefreshRate === 0 ? "Auto" : `${settings.targetRefreshRate} Hz`}</span>
+                  </div>
+                  <div className="settings-chip-row">
+                    {REFRESH_RATE_OPTIONS.map((hz) => (
+                      <button
+                        key={hz}
+                        className={`settings-chip ${settings.targetRefreshRate === hz ? "active" : ""}`}
+                        onClick={() => handleChange("targetRefreshRate", hz)}
+                      >
+                        <span>{hz === 0 ? "Auto" : `${hz} Hz`}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Hint to the server about your display's refresh rate. Auto matches your FPS setting.
+                  </span>
+                </div>
+
+                {/* FPS Limiter */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">FPS Limiter</label>
+                    <span className="settings-value-badge">{settings.fpsLimiter === 0 ? "Unlimited" : `${settings.fpsLimiter} FPS`}</span>
+                  </div>
+                  <div className="settings-chip-row">
+                    {FPS_LIMITER_OPTIONS.map((fps) => (
+                      <button
+                        key={fps}
+                        className={`settings-chip ${settings.fpsLimiter === fps ? "active" : ""}`}
+                        onClick={() => handleChange("fpsLimiter", fps)}
+                      >
+                        <span>{fps === 0 ? "Unlimited" : `${fps}`}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Client-side FPS cap. Useful if your display runs at a lower rate than the stream to save bandwidth.
                   </span>
                 </div>
               </div>

@@ -1314,6 +1314,13 @@ export async function claimSession(input: SessionClaimRequest): Promise<SessionI
     enableCloudGsync: false,
     reflexMode: "auto",
     enableHdr: false,
+    frameBufferDepth: 1,
+    udpPacketPacing: true,
+    forceCodec: "auto",
+    lanMode: false,
+    integerScaling: false,
+    targetRefreshRate: 0,
+    fpsLimiter: 0,
   };
   const keyboardLayout = resolveGfnKeyboardLayout(settings.keyboardLayout ?? DEFAULT_KEYBOARD_LAYOUT, process.platform);
   const languageCode = settings.gameLanguage ?? "en_US";

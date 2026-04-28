@@ -1,7 +1,7 @@
 import { app } from "electron";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import type { VideoCodec, ColorQuality, VideoAccelerationPreference, MicrophoneMode, GameLanguage, AspectRatio, KeyboardLayout, StreamQualityPreset, ReflexMode } from "@shared/gfn";
+import type { VideoCodec, ColorQuality, VideoAccelerationPreference, MicrophoneMode, GameLanguage, AspectRatio, KeyboardLayout, StreamQualityPreset, ReflexMode, FrameBufferDepth, ForceCodecMode } from "@shared/gfn";
 import { DEFAULT_KEYBOARD_LAYOUT, getDefaultStreamPreferences, normalizeStreamPreferences } from "@shared/gfn";
 
 export interface Settings {
@@ -108,6 +108,30 @@ export interface Settings {
   enableHdr: boolean;
   /** Active stream quality preset (custom = manual settings) */
   streamQualityPreset: StreamQualityPreset;
+  /** Frame buffer depth: 0 = lowest latency, 2 = smoothest */
+  frameBufferDepth: FrameBufferDepth;
+  /** Smooth out UDP packet bursts (helps unstable Wi-Fi) */
+  udpPacketPacing: boolean;
+  /** Force a specific codec instead of auto-negotiation */
+  forceCodec: ForceCodecMode;
+  /** LAN Mode: unlock bitrate ceiling to 200 Mbps */
+  lanMode: boolean;
+  /** Super-sampling: request higher resolution than local display for AA boost */
+  superSampling: boolean;
+  /** Super-sampling target resolution (e.g. "3840x2160") */
+  superSamplingResolution: string;
+  /** Show frame-time variance graph overlay */
+  showFrameTimeGraph: boolean;
+  /** Show decode latency counter overlay */
+  showDecodeLatency: boolean;
+  /** Show network jitter indicator overlay */
+  showNetworkJitter: boolean;
+  /** Integer scaling: sharp pixel-perfect upscale instead of bilinear */
+  integerScaling: boolean;
+  /** Target display refresh rate hint for the server (0 = auto) */
+  targetRefreshRate: number;
+  /** Client-side FPS limiter (0 = unlimited) */
+  fpsLimiter: number;
 }
 
 const defaultStopShortcut = "Ctrl+Shift+Q";
@@ -170,6 +194,18 @@ const DEFAULT_SETTINGS: Settings = {
   reflexMode: "auto",
   enableHdr: false,
   streamQualityPreset: "custom",
+  frameBufferDepth: 1,
+  udpPacketPacing: true,
+  forceCodec: "auto",
+  lanMode: false,
+  superSampling: false,
+  superSamplingResolution: "3840x2160",
+  showFrameTimeGraph: false,
+  showDecodeLatency: false,
+  showNetworkJitter: false,
+  integerScaling: false,
+  targetRefreshRate: 0,
+  fpsLimiter: 0,
 };
 
 export class SettingsManager {

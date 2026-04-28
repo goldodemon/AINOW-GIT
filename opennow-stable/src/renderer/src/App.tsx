@@ -78,6 +78,11 @@ function buildStreamSettings(s: Settings): StreamSettings {
     ? s.customResolution
     : s.resolution;
 
+  // Super-sampling overrides resolution with a higher target
+  if (s.superSampling && s.superSamplingResolution) {
+    resolution = s.superSamplingResolution;
+  }
+
   // Apply resolution scaling
   if (s.resolutionScale !== 100) {
     const parts = resolution.split("x");
@@ -90,12 +95,14 @@ function buildStreamSettings(s: Settings): StreamSettings {
   }
 
   const fps = s.customFpsEnabled && s.customFps > 0 ? s.customFps : s.fps;
+  const codec = s.forceCodec !== "auto" ? s.forceCodec : s.codec;
+  const maxBitrateMbps = s.lanMode ? Math.max(s.maxBitrateMbps, 200) : s.maxBitrateMbps;
 
   return {
     resolution,
     fps,
-    maxBitrateMbps: s.maxBitrateMbps,
-    codec: s.codec,
+    maxBitrateMbps,
+    codec,
     colorQuality: s.colorQuality,
     keyboardLayout: s.keyboardLayout,
     gameLanguage: s.gameLanguage,
@@ -103,6 +110,13 @@ function buildStreamSettings(s: Settings): StreamSettings {
     enableCloudGsync: s.enableCloudGsync,
     reflexMode: s.reflexMode,
     enableHdr: s.enableHdr,
+    frameBufferDepth: s.frameBufferDepth,
+    udpPacketPacing: s.udpPacketPacing,
+    forceCodec: s.forceCodec,
+    lanMode: s.lanMode,
+    integerScaling: s.integerScaling,
+    targetRefreshRate: s.targetRefreshRate,
+    fpsLimiter: s.fpsLimiter,
   };
 }
 const allResolutionOptions = ["1024x768", "1280x720", "1280x800", "1280x960", "1280x1024", "1440x900", "1600x1200", "1680x1050", "1920x1080", "1920x1200", "2560x1080", "2560x1440", "2560x1600", "3440x1440", "3840x2160", "3840x2400", "5120x1440"];
@@ -908,6 +922,18 @@ export function App(): JSX.Element {
     reflexMode: "auto",
     enableHdr: false,
     streamQualityPreset: "custom",
+    frameBufferDepth: 1,
+    udpPacketPacing: true,
+    forceCodec: "auto",
+    lanMode: false,
+    superSampling: false,
+    superSamplingResolution: "3840x2160",
+    showFrameTimeGraph: false,
+    showDecodeLatency: false,
+    showNetworkJitter: false,
+    integerScaling: false,
+    targetRefreshRate: 0,
+    fpsLimiter: 0,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [codecResults, setCodecResults] = useState<CodecTestResult[] | null>(() => loadStoredCodecResults());
@@ -2866,6 +2892,10 @@ export function App(): JSX.Element {
               resolution: ss.resolution,
               fps: ss.fps,
               maxBitrateKbps: ss.maxBitrateMbps * 1000,
+              frameBufferDepth: ss.frameBufferDepth,
+              udpPacketPacing: ss.udpPacketPacing,
+              integerScaling: ss.integerScaling,
+              targetRefreshRate: ss.targetRefreshRate,
             });
             setLaunchError(null);
             setStreamStatus("streaming");
@@ -3981,6 +4011,9 @@ export function App(): JSX.Element {
             onReleasePointerLock={() => {
               void releasePointerLockIfNeeded();
             }}
+            showFrameTimeGraph={settings.showFrameTimeGraph}
+            showDecodeLatency={settings.showDecodeLatency}
+            showNetworkJitter={settings.showNetworkJitter}
           />
         )}
         {isSwitchingGame && settings.controllerMode && streamStatus !== "connecting" && (
