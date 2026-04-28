@@ -1,7 +1,7 @@
 import { app } from "electron";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import type { VideoCodec, ColorQuality, VideoAccelerationPreference, MicrophoneMode, GameLanguage, AspectRatio, KeyboardLayout } from "@shared/gfn";
+import type { VideoCodec, ColorQuality, VideoAccelerationPreference, MicrophoneMode, GameLanguage, AspectRatio, KeyboardLayout, StreamQualityPreset, ReflexMode } from "@shared/gfn";
 import { DEFAULT_KEYBOARD_LAYOUT, getDefaultStreamPreferences, normalizeStreamPreferences } from "@shared/gfn";
 
 export interface Settings {
@@ -92,6 +92,22 @@ export interface Settings {
   discordRichPresence: boolean;
   /** Automatically check GitHub Releases for app updates in the background */
   autoCheckForUpdates: boolean;
+  /** Custom resolution mode — when true, the custom resolution string is used instead of presets */
+  customResolutionEnabled: boolean;
+  /** Custom resolution string (e.g. "2560x1080") used when customResolutionEnabled is true */
+  customResolution: string;
+  /** Custom FPS mode — when true, the custom FPS value is used instead of presets */
+  customFpsEnabled: boolean;
+  /** Custom FPS value used when customFpsEnabled is true */
+  customFps: number;
+  /** Resolution scaling percentage (50–200). Applied as a multiplier to the effective resolution */
+  resolutionScale: number;
+  /** NVIDIA Reflex mode: auto (enabled at >=120fps), on (always), off (never) */
+  reflexMode: ReflexMode;
+  /** Enable HDR streaming (may cause resolution downscaling on some servers) */
+  enableHdr: boolean;
+  /** Active stream quality preset (custom = manual settings) */
+  streamQualityPreset: StreamQualityPreset;
 }
 
 const defaultStopShortcut = "Ctrl+Shift+Q";
@@ -146,6 +162,14 @@ const DEFAULT_SETTINGS: Settings = {
   enableCloudGsync: false,
   discordRichPresence: false,
   autoCheckForUpdates: true,
+  customResolutionEnabled: false,
+  customResolution: "1920x1080",
+  customFpsEnabled: false,
+  customFps: 60,
+  resolutionScale: 100,
+  reflexMode: "auto",
+  enableHdr: false,
+  streamQualityPreset: "custom",
 };
 
 export class SettingsManager {

@@ -21,6 +21,7 @@ import type {
   SessionStopRequest,
   SavedAccount,
   Settings,
+  StreamSettings,
   SubscriptionInfo,
   StreamRegion,
   VideoCodec,
@@ -67,14 +68,55 @@ import { QueueServerSelectModal } from "./components/QueueServerSelectModal";
 
 const codecOptions: VideoCodec[] = [...USER_FACING_VIDEO_CODEC_OPTIONS];
 const DEFAULT_STREAM_PREFERENCES = getDefaultStreamPreferences();
-const allResolutionOptions = ["1280x720", "1280x800", "1440x900", "1680x1050", "1920x1080", "1920x1200", "2560x1080", "2560x1440", "2560x1600", "3440x1440", "3840x2160", "3840x2400"];
+
+/**
+ * Build StreamSettings from app Settings, applying custom resolution/FPS
+ * and resolution scaling when enabled.
+ */
+function buildStreamSettings(s: Settings): StreamSettings {
+  let resolution = s.customResolutionEnabled && s.customResolution
+    ? s.customResolution
+    : s.resolution;
+
+  // Apply resolution scaling
+  if (s.resolutionScale !== 100) {
+    const parts = resolution.split("x");
+    const w = parseInt(parts[0] ?? "", 10);
+    const h = parseInt(parts[1] ?? "", 10);
+    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+      const scale = s.resolutionScale / 100;
+      resolution = `${Math.round(w * scale)}x${Math.round(h * scale)}`;
+    }
+  }
+
+  const fps = s.customFpsEnabled && s.customFps > 0 ? s.customFps : s.fps;
+
+  return {
+    resolution,
+    fps,
+    maxBitrateMbps: s.maxBitrateMbps,
+    codec: s.codec,
+    colorQuality: s.colorQuality,
+    keyboardLayout: s.keyboardLayout,
+    gameLanguage: s.gameLanguage,
+    enableL4S: s.enableL4S,
+    enableCloudGsync: s.enableCloudGsync,
+    reflexMode: s.reflexMode,
+    enableHdr: s.enableHdr,
+  };
+}
+const allResolutionOptions = ["1024x768", "1280x720", "1280x800", "1280x960", "1280x1024", "1440x900", "1600x1200", "1680x1050", "1920x1080", "1920x1200", "2560x1080", "2560x1440", "2560x1600", "3440x1440", "3840x2160", "3840x2400", "5120x1440"];
 const fpsOptions = [30, 60, 120, 144, 240];
-const aspectRatioOptions = ["16:9", "16:10", "21:9", "32:9"] as const;
+const aspectRatioOptions = ["16:9", "16:10", "21:9", "32:9", "4:3", "5:4"] as const;
 
 const RESOLUTION_TO_ASPECT_RATIO: Record<string, string> = {
+  "1024x768": "4:3",
   "1280x720": "16:9",
   "1280x800": "16:10",
+  "1280x960": "4:3",
+  "1280x1024": "5:4",
   "1440x900": "16:10",
+  "1600x1200": "4:3",
   "1680x1050": "16:10",
   "1920x1080": "16:9",
   "1920x1200": "16:10",
@@ -858,6 +900,14 @@ export function App(): JSX.Element {
     enableCloudGsync: false,
     discordRichPresence: false,
     autoCheckForUpdates: true,
+    customResolutionEnabled: false,
+    customResolution: "1920x1080",
+    customFpsEnabled: false,
+    customFps: 60,
+    resolutionScale: 100,
+    reflexMode: "auto",
+    enableHdr: false,
+    streamQualityPreset: "custom",
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [codecResults, setCodecResults] = useState<CodecTestResult[] | null>(() => loadStoredCodecResults());
@@ -2598,17 +2648,7 @@ export function App(): JSX.Element {
       serverIp: existingSession.serverIp,
       sessionId: existingSession.sessionId,
       appId: resolveSessionClaimAppId(existingSession),
-      settings: {
-        resolution: settings.resolution,
-        fps: settings.fps,
-        maxBitrateMbps: settings.maxBitrateMbps,
-        codec: settings.codec,
-        colorQuality: settings.colorQuality,
-        keyboardLayout: settings.keyboardLayout,
-        gameLanguage: settings.gameLanguage,
-        enableL4S: settings.enableL4S,
-        enableCloudGsync: settings.enableCloudGsync,
-      },
+      settings: buildStreamSettings(settings),
     });
 
     await applyClaimedSessionAndConnect(claimed);
@@ -2719,17 +2759,7 @@ export function App(): JSX.Element {
             serverIp: candidate.serverIp,
             sessionId: candidate.sessionId,
             appId: resolveSessionClaimAppId(candidate),
-            settings: {
-              resolution: settings.resolution,
-              fps: settings.fps,
-              maxBitrateMbps: settings.maxBitrateMbps,
-              codec: settings.codec,
-              colorQuality: settings.colorQuality,
-              keyboardLayout: settings.keyboardLayout,
-              gameLanguage: settings.gameLanguage,
-              enableL4S: settings.enableL4S,
-              enableCloudGsync: settings.enableCloudGsync,
-            },
+            settings: buildStreamSettings(settings),
           });
           if (!isRecoveryGenerationCurrent(recoveryGeneration)) {
             console.log("[Recovery] Discarding claimed session due to stale recovery generation");
@@ -2829,12 +2859,13 @@ export function App(): JSX.Element {
           }
 
           if (clientRef.current) {
+            const ss = buildStreamSettings(settings);
             await clientRef.current.handleOffer(event.sdp, activeSession, {
-              codec: settings.codec,
-              colorQuality: settings.colorQuality,
-              resolution: settings.resolution,
-              fps: settings.fps,
-              maxBitrateKbps: settings.maxBitrateMbps * 1000,
+              codec: ss.codec,
+              colorQuality: ss.colorQuality,
+              resolution: ss.resolution,
+              fps: ss.fps,
+              maxBitrateKbps: ss.maxBitrateMbps * 1000,
             });
             setLaunchError(null);
             setStreamStatus("streaming");
@@ -3038,17 +3069,7 @@ export function App(): JSX.Element {
         accountLinked: chooseAccountLinked(game, selectedVariant),
         existingSessionStrategy,
         zone: "prod",
-        settings: {
-          resolution: settings.resolution,
-          fps: settings.fps,
-          maxBitrateMbps: settings.maxBitrateMbps,
-          codec: settings.codec,
-          colorQuality: settings.colorQuality,
-          keyboardLayout: settings.keyboardLayout,
-          gameLanguage: settings.gameLanguage,
-          enableL4S: settings.enableL4S,
-          enableCloudGsync: settings.enableCloudGsync,
-        },
+        settings: buildStreamSettings(settings),
       });
 
       setSession(newSession);

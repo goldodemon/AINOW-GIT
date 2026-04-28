@@ -99,7 +99,9 @@ export function colorQualityIs10Bit(cq: ColorQuality): boolean {
 }
 
 export type MicrophoneMode = "disabled" | "push-to-talk" | "voice-activity";
-export type AspectRatio = "16:9" | "16:10" | "21:9" | "32:9";
+export type AspectRatio = "16:9" | "16:10" | "21:9" | "32:9" | "4:3" | "5:4";
+export type StreamQualityPreset = "performance" | "balanced" | "quality" | "ultra" | "custom";
+export type ReflexMode = "auto" | "on" | "off";
 export type RuntimePlatform =
   | "aix"
   | "android"
@@ -179,6 +181,22 @@ export interface Settings {
   discordRichPresence: boolean;
   /** Automatically check GitHub Releases for app updates in the background */
   autoCheckForUpdates: boolean;
+  /** Custom resolution mode — when true, the custom resolution string is used instead of presets */
+  customResolutionEnabled: boolean;
+  /** Custom resolution string (e.g. "2560x1080") used when customResolutionEnabled is true */
+  customResolution: string;
+  /** Custom FPS mode — when true, the custom FPS value is used instead of presets */
+  customFpsEnabled: boolean;
+  /** Custom FPS value used when customFpsEnabled is true */
+  customFps: number;
+  /** Resolution scaling percentage (50–200). Applied as a multiplier to the effective resolution */
+  resolutionScale: number;
+  /** NVIDIA Reflex mode: auto (enabled at >=120fps), on (always), off (never) */
+  reflexMode: ReflexMode;
+  /** Enable HDR streaming (may cause resolution downscaling on some servers) */
+  enableHdr: boolean;
+  /** Active stream quality preset (custom = manual settings) */
+  streamQualityPreset: StreamQualityPreset;
 }
 
 export const DEFAULT_STREAM_PREFERENCES: Readonly<Pick<Settings, "codec" | "colorQuality">> = Object.freeze({
@@ -465,6 +483,10 @@ export interface StreamSettings {
   enableL4S: boolean;
   /** Request Cloud G-Sync / Variable Refresh Rate on new sessions */
   enableCloudGsync: boolean;
+  /** NVIDIA Reflex mode: auto (enabled at >=120fps), on (always), off (never) */
+  reflexMode: ReflexMode;
+  /** Enable HDR streaming */
+  enableHdr: boolean;
 }
 
 export interface SessionCreateRequest {

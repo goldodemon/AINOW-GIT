@@ -17,6 +17,8 @@ import type {
     ThankYouContributor,
     ThankYouSupporter,
     AppUpdaterState,
+    StreamQualityPreset,
+    ReflexMode,
   } from "@shared/gfn";
 import {
   colorQualityRequiresHevc,
@@ -64,6 +66,16 @@ const SETTINGS_SCOPE_SEARCH_TERMS: Record<SettingsSearchScopeId, readonly string
     "l4s",
     "cloud gsync",
     "video acceleration",
+    "custom resolution",
+    "custom fps",
+    "resolution scaling",
+    "scale",
+    "reflex",
+    "hdr",
+    "preset",
+    "performance",
+    "balanced",
+    "ultra",
   ],
   "stream-codec-diagnostics": [
     "stream",
@@ -151,12 +163,18 @@ const STATIC_ASPECT_RATIO_PRESETS: AspectRatioPreset[] = [
   { value: "16:10", label: "16:10 (Widescreen)" },
   { value: "21:9", label: "21:9 (Ultrawide)" },
   { value: "32:9", label: "32:9 (Super Ultrawide)" },
+  { value: "4:3", label: "4:3 (Legacy)" },
+  { value: "5:4", label: "5:4 (Legacy)" },
 ];
 
 const STATIC_RESOLUTION_PRESETS: ResolutionPreset[] = [
+  { value: "1024x768", label: "XGA (4:3)" },
   { value: "1280x720", label: "720p (16:9)" },
   { value: "1280x800", label: "720p (16:10)" },
+  { value: "1280x960", label: "960p (4:3)" },
+  { value: "1280x1024", label: "SXGA (5:4)" },
   { value: "1440x900", label: "WXGA (16:10)" },
+  { value: "1600x1200", label: "UXGA (4:3)" },
   { value: "1680x1050", label: "WSXGA (16:10)" },
   { value: "1920x1080", label: "1080p (16:9)" },
   { value: "1920x1200", label: "1200p (16:10)" },
@@ -179,6 +197,50 @@ const STATIC_FPS_PRESETS: FpsPreset[] = [
   { value: 240 },
   { value: 360 },
 ];
+
+/* ── Stream Quality Presets ────────────────────────────────────────── */
+
+interface QualityPresetConfig {
+  resolution: string;
+  fps: number;
+  maxBitrateMbps: number;
+  codec: VideoCodec;
+}
+
+const QUALITY_PRESETS: Record<Exclude<StreamQualityPreset, "custom">, { label: string; description: string; config: QualityPresetConfig }> = {
+  performance: {
+    label: "Performance",
+    description: "Lower quality, best for weak connections",
+    config: { resolution: "1280x720", fps: 60, maxBitrateMbps: 20, codec: "H264" },
+  },
+  balanced: {
+    label: "Balanced",
+    description: "Good balance of quality and performance",
+    config: { resolution: "1920x1080", fps: 60, maxBitrateMbps: 50, codec: "H264" },
+  },
+  quality: {
+    label: "Quality",
+    description: "High quality for stable connections",
+    config: { resolution: "1920x1080", fps: 120, maxBitrateMbps: 80, codec: "H265" },
+  },
+  ultra: {
+    label: "Ultra",
+    description: "Maximum quality, requires strong connection",
+    config: { resolution: "2560x1440", fps: 120, maxBitrateMbps: 120, codec: "H265" },
+  },
+};
+
+const QUALITY_PRESET_ORDER: Exclude<StreamQualityPreset, "custom">[] = ["performance", "balanced", "quality", "ultra"];
+
+const REFLEX_OPTIONS: { value: ReflexMode; label: string; description: string }[] = [
+  { value: "auto", label: "Auto", description: "Enabled when FPS ≥ 120" },
+  { value: "on", label: "Always On", description: "Force enable" },
+  { value: "off", label: "Off", description: "Disabled" },
+];
+
+const RESOLUTION_SCALE_MIN = 50;
+const RESOLUTION_SCALE_MAX = 200;
+const RESOLUTION_SCALE_STEP = 10;
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
 const shortcutExamples = "Examples: F3, Ctrl+Shift+Q, Ctrl+Shift+K";
@@ -763,6 +825,47 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
       }
     },
     [handleChange, settings.colorQuality]
+  );
+
+  const handleQualityPresetChange = useCallback(
+    (preset: StreamQualityPreset) => {
+      handleChange("streamQualityPreset", preset);
+      if (preset !== "custom") {
+        const config = QUALITY_PRESETS[preset].config;
+        handleChange("resolution", config.resolution);
+        handleChange("fps", config.fps);
+        handleChange("maxBitrateMbps", config.maxBitrateMbps);
+        handleChange("codec", config.codec);
+        handleChange("customResolutionEnabled", false);
+        handleChange("customFpsEnabled", false);
+        handleChange("resolutionScale", 100);
+      }
+    },
+    [handleChange]
+  );
+
+  const handleCustomResolutionToggle = useCallback(
+    (enabled: boolean) => {
+      handleChange("customResolutionEnabled", enabled);
+      handleChange("streamQualityPreset", "custom");
+    },
+    [handleChange]
+  );
+
+  const handleCustomFpsToggle = useCallback(
+    (enabled: boolean) => {
+      handleChange("customFpsEnabled", enabled);
+      handleChange("streamQualityPreset", "custom");
+    },
+    [handleChange]
+  );
+
+  const handleManualSettingChange = useCallback(
+    <K extends keyof Settings>(key: K, value: Settings[K]) => {
+      handleChange(key, value);
+      handleChange("streamQualityPreset", "custom");
+    },
+    [handleChange]
   );
 
   // Microphone devices
@@ -1666,6 +1769,30 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                 <h2>Video</h2>
               </div>
               <div className="settings-rows">
+                {/* Stream Quality Presets */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Quality Preset</label>
+                  <div className="settings-chip-row">
+                    {QUALITY_PRESET_ORDER.map((preset) => (
+                      <button
+                        key={preset}
+                        className={`settings-chip ${settings.streamQualityPreset === preset ? "active" : ""}`}
+                        onClick={() => handleQualityPresetChange(preset)}
+                        title={QUALITY_PRESETS[preset].description}
+                      >
+                        <span>{QUALITY_PRESETS[preset].label}</span>
+                      </button>
+                    ))}
+                    <button
+                      className={`settings-chip ${settings.streamQualityPreset === "custom" ? "active" : ""}`}
+                      onClick={() => handleQualityPresetChange("custom")}
+                      title="Manual configuration"
+                    >
+                      <span>Custom</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Aspect Ratio — static chips */}
                 <div className="settings-row">
                   <label className="settings-label">Aspect Ratio</label>
@@ -1722,6 +1849,76 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                   </div>
                 </div>
 
+                {/* Custom Resolution */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label">Custom Resolution</label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.customResolutionEnabled}
+                        onChange={(e) => handleCustomResolutionToggle(e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  {settings.customResolutionEnabled && (
+                    <input
+                      type="text"
+                      className="settings-text-input"
+                      placeholder="e.g. 2560x1080"
+                      value={settings.customResolution}
+                      onChange={(e) => handleChange("customResolution", e.target.value)}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        if (val && /^\d+x\d+$/.test(val)) {
+                          handleChange("customResolution", val);
+                        }
+                      }}
+                    />
+                  )}
+                  <span className="settings-subtle-hint">
+                    Enter any resolution as WIDTHxHEIGHT (e.g. 1600x900, 3840x1600).
+                  </span>
+                </div>
+
+                {/* Resolution Scaling */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">Resolution Scale</label>
+                    <span className="settings-value-badge">{settings.resolutionScale}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    className="settings-slider"
+                    min={RESOLUTION_SCALE_MIN}
+                    max={RESOLUTION_SCALE_MAX}
+                    step={RESOLUTION_SCALE_STEP}
+                    value={settings.resolutionScale}
+                    onChange={(e) => handleManualSettingChange("resolutionScale", parseInt(e.target.value, 10))}
+                  />
+                  <span className="settings-subtle-hint">
+                    Multiplier applied to the chosen resolution. 100% = native, 50% = half, 200% = double.
+                  </span>
+                  {settings.resolutionScale !== 100 && (() => {
+                    const baseRes = settings.customResolutionEnabled && settings.customResolution
+                      ? settings.customResolution
+                      : settings.resolution;
+                    const parts = baseRes.split("x");
+                    const w = parseInt(parts[0] ?? "", 10);
+                    const h = parseInt(parts[1] ?? "", 10);
+                    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+                      const scale = settings.resolutionScale / 100;
+                      return (
+                        <span className="settings-subtle-hint" style={{ color: "var(--accent)", marginTop: 2 }}>
+                          Effective resolution: {Math.round(w * scale)}x{Math.round(h * scale)}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 {/* FPS — dynamic or static chips */}
                 <div className="settings-row">
                   <label className="settings-label">FPS</label>
@@ -1736,6 +1933,40 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Custom FPS */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label">Custom FPS</label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.customFpsEnabled}
+                        onChange={(e) => handleCustomFpsToggle(e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  {settings.customFpsEnabled && (
+                    <input
+                      type="number"
+                      className="settings-text-input"
+                      placeholder="e.g. 75"
+                      min={1}
+                      max={500}
+                      value={settings.customFps}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (Number.isFinite(v) && v > 0 && v <= 500) {
+                          handleChange("customFps", v);
+                        }
+                      }}
+                    />
+                  )}
+                  <span className="settings-subtle-hint">
+                    Override with any FPS value (e.g. 75, 100, 200). Server support varies.
+                  </span>
                 </div>
 
                 {/* Codec */}
@@ -1832,6 +2063,28 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                     value={settings.maxBitrateMbps}
                     onChange={(e) => handleChange("maxBitrateMbps", parseInt(e.target.value, 10))}
                   />
+                  {(() => {
+                    const baseRes = settings.customResolutionEnabled && settings.customResolution
+                      ? settings.customResolution
+                      : settings.resolution;
+                    const parts = baseRes.split("x");
+                    const w = parseInt(parts[0] ?? "", 10);
+                    const h = parseInt(parts[1] ?? "", 10);
+                    const fps = settings.customFpsEnabled && settings.customFps > 0 ? settings.customFps : settings.fps;
+                    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 && fps > 0) {
+                      const scale = settings.resolutionScale / 100;
+                      const totalPixels = Math.round(w * scale) * Math.round(h * scale) * fps;
+                      const bpp = (settings.maxBitrateMbps * 1_000_000) / totalPixels;
+                      const quality = bpp >= 0.1 ? "good" : bpp >= 0.05 ? "medium" : "low";
+                      const qualityLabel = bpp >= 0.1 ? "Excellent" : bpp >= 0.05 ? "Adequate" : "Low";
+                      return (
+                        <span className={`settings-subtle-hint region-ping-value ${quality}`} style={{ marginTop: 2 }}>
+                          {bpp.toFixed(3)} bits/pixel · {qualityLabel} quality for {Math.round(w * scale)}x{Math.round(h * scale)}@{fps}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="settings-row settings-row--column">
@@ -1875,6 +2128,49 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                   </div>
                   <span className="settings-subtle-hint">
                     Request Cloud G-Sync (VRR) on newly created sessions. Smooths frame pacing on variable frame rate streams. Requires a VRR-capable display. The service may ignore this request depending on your subscription tier.
+                  </span>
+                </div>
+
+                {/* NVIDIA Reflex */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">NVIDIA Reflex</label>
+                  <div className="settings-chip-row">
+                    {REFLEX_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        className={`settings-chip ${settings.reflexMode === option.value ? "active" : ""}`}
+                        onClick={() => handleChange("reflexMode", option.value)}
+                        title={option.description}
+                      >
+                        <span>{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Reduces input latency. Auto enables Reflex when streaming at 120+ FPS.
+                  </span>
+                </div>
+
+                {/* HDR Mode */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">
+                        HDR Streaming
+                        <span className="settings-inline-badge settings-inline-badge--beta">Experimental</span>
+                      </span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.enableHdr}
+                        onChange={(e) => handleChange("enableHdr", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Enable HDR streaming for supported displays. Note: may cause resolution downscaling on some servers. Requires HDR-capable display and 10-bit color depth.
                   </span>
                 </div>
               </div>
