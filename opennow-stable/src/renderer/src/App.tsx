@@ -585,28 +585,27 @@ function getLocalSessionTimerWarning(
   };
 }
 
-function shouldUseQueueAdPolling(session: SessionInfo, subscription: SubscriptionInfo | null, authSession: AuthSession | null): boolean {
-  return (
-    shouldShowQueueAdsForMembership(subscription, authSession) &&
-    isSessionInQueue(session) &&
-    isSessionAdsRequired(session.adState)
-  );
+function shouldUseQueueAdPolling(_session: SessionInfo, _subscription: SubscriptionInfo | null, _authSession: AuthSession | null): boolean {
+  return false;
 }
 
 function getEffectiveAdState(
-  session: SessionInfo | null,
-  subscription: SubscriptionInfo | null,
-  authSession: AuthSession | null,
+  _session: SessionInfo | null,
+  _subscription: SubscriptionInfo | null,
+  _authSession: AuthSession | null,
 ): SessionAdState | undefined {
-  if (!session) {
+  return undefined;
+
+  /* Original ad logic disabled — kept for reference:
+  if (!_session) {
     return undefined;
   }
 
-  if (session.adState) {
-    return session.adState;
+  if (_session.adState) {
+    return _session.adState;
   }
 
-  if ((session.status === 1 || session.status === 2 || session.status === 3) && session.queuePosition !== undefined) {
+  if ((_session.status === 1 || _session.status === 2 || _session.status === 3) && _session.queuePosition !== undefined) {
     return {
       isAdsRequired: true,
       sessionAdsRequired: true,
@@ -620,11 +619,11 @@ function getEffectiveAdState(
     };
   }
 
-  if (!shouldShowQueueAdsForMembership(subscription, authSession)) {
+  if (!shouldShowQueueAdsForMembership(_subscription, _authSession)) {
     return undefined;
   }
 
-  if (!isSessionInQueue(session)) {
+  if (!isSessionInQueue(_session)) {
     return undefined;
   }
 
@@ -650,6 +649,7 @@ function getEffectiveAdState(
       },
     ],
   };
+  */
 }
 
 function mergeAdState(
