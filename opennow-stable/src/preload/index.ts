@@ -40,6 +40,7 @@ import type {
   ThankYouDataResult,
   AppUpdaterState,
 } from "@shared/gfn";
+import type { StreamPresetId, SessionHistoryEntry, SessionHistorySummary, NetworkDiagnosticsResult } from "@shared/cloudFeatures";
 import { parseSerializedSessionErrorTransport } from "@shared/sessionError";
 
 const { contextBridge, ipcRenderer } = electron;
@@ -175,6 +176,22 @@ const api: OpenNowApi = {
     ipcRenderer.invoke(IPC_CHANNELS.PRINTEDWASTE_SERVER_MAPPING_FETCH),
   getThanksData: (): Promise<ThankYouDataResult> => ipcRenderer.invoke(IPC_CHANNELS.COMMUNITY_GET_THANKS),
   clearDiscordActivity: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.DISCORD_CLEAR_ACTIVITY),
+
+  // AINOW Cloud Features
+  applyStreamPreset: (presetId: StreamPresetId): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_APPLY_PRESET, presetId),
+  getSessionHistory: (count?: number): Promise<SessionHistoryEntry[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_GET_SESSION_HISTORY, count),
+  getSessionSummary: (): Promise<SessionHistorySummary> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_GET_SESSION_SUMMARY),
+  clearSessionHistory: (): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_CLEAR_SESSION_HISTORY),
+  runNetworkDiagnostics: (): Promise<NetworkDiagnosticsResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_RUN_NETWORK_DIAGNOSTICS),
+  getLastDiagnostics: (): Promise<NetworkDiagnosticsResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_GET_LAST_DIAGNOSTICS),
+  getDataUsage: (): Promise<{ bytesReceived: number; bytesSent: number }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLOUD_GET_DATA_USAGE),
 };
 
 contextBridge.exposeInMainWorld("openNow", api);

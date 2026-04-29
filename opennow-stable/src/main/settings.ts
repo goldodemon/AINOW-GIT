@@ -2,7 +2,9 @@ import { app } from "electron";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import type { VideoCodec, ColorQuality, VideoAccelerationPreference, MicrophoneMode, GameLanguage, AspectRatio, KeyboardLayout } from "@shared/gfn";
+import type { StreamPresetId } from "@shared/cloudFeatures";
 import { DEFAULT_KEYBOARD_LAYOUT, getDefaultStreamPreferences, normalizeStreamPreferences } from "@shared/gfn";
+import { DEFAULT_CLOUD_SETTINGS } from "@shared/cloudFeatures";
 
 export interface Settings {
   /** Video resolution (e.g., "1920x1080") */
@@ -92,6 +94,22 @@ export interface Settings {
   discordRichPresence: boolean;
   /** Automatically check GitHub Releases for app updates in the background */
   autoCheckForUpdates: boolean;
+  /** Active stream quality preset (AINOW cloud feature) */
+  streamPreset: StreamPresetId;
+  /** Enable automatic reconnection after connection drops */
+  autoReconnectEnabled: boolean;
+  /** Maximum reconnect attempts before giving up */
+  autoReconnectMaxRetries: number;
+  /** Enable bandwidth usage monitoring */
+  bandwidthMonitorEnabled: boolean;
+  /** Monthly data cap in GB (0 = unlimited) */
+  bandwidthMonthlyCapGb: number;
+  /** Warn when monthly usage exceeds this percentage */
+  bandwidthWarnAtPercent: number;
+  /** Record session history locally */
+  sessionHistoryEnabled: boolean;
+  /** Maximum session history entries to retain */
+  sessionHistoryMaxEntries: number;
 }
 
 const defaultStopShortcut = "Ctrl+Shift+Q";
@@ -146,6 +164,14 @@ const DEFAULT_SETTINGS: Settings = {
   enableCloudGsync: false,
   discordRichPresence: false,
   autoCheckForUpdates: true,
+  streamPreset: DEFAULT_CLOUD_SETTINGS.streamPreset,
+  autoReconnectEnabled: DEFAULT_CLOUD_SETTINGS.autoReconnectEnabled,
+  autoReconnectMaxRetries: DEFAULT_CLOUD_SETTINGS.autoReconnectMaxRetries,
+  bandwidthMonitorEnabled: DEFAULT_CLOUD_SETTINGS.bandwidthMonitorEnabled,
+  bandwidthMonthlyCapGb: DEFAULT_CLOUD_SETTINGS.bandwidthMonthlyCapGb,
+  bandwidthWarnAtPercent: DEFAULT_CLOUD_SETTINGS.bandwidthWarnAtPercent,
+  sessionHistoryEnabled: DEFAULT_CLOUD_SETTINGS.sessionHistoryEnabled,
+  sessionHistoryMaxEntries: DEFAULT_CLOUD_SETTINGS.sessionHistoryMaxEntries,
 };
 
 export class SettingsManager {

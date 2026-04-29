@@ -858,6 +858,14 @@ export function App(): JSX.Element {
     enableCloudGsync: false,
     discordRichPresence: false,
     autoCheckForUpdates: true,
+    streamPreset: "balanced",
+    autoReconnectEnabled: false,
+    autoReconnectMaxRetries: 5,
+    bandwidthMonitorEnabled: false,
+    bandwidthMonthlyCapGb: 0,
+    bandwidthWarnAtPercent: 80,
+    sessionHistoryEnabled: true,
+    sessionHistoryMaxEntries: 500,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [codecResults, setCodecResults] = useState<CodecTestResult[] | null>(() => loadStoredCodecResults());
@@ -3336,7 +3344,7 @@ export function App(): JSX.Element {
               You&apos;re about to remove every saved account from this device and return to guest mode.
             </p>
             <p className="logout-confirm-subtext">
-              Your cloud session data stays on the service. This just clears local OpenNOW account sessions.
+              Your cloud session data stays on the service. This just clears local AINOW account sessions.
             </p>
             <div className="logout-confirm-actions">
               <button

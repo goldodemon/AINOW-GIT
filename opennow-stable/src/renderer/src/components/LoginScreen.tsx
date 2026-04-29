@@ -61,7 +61,7 @@ export function LoginScreen({
           <div className="login-brand-mark">
             <Zap size={20} strokeWidth={2.5} />
           </div>
-          <span className="login-brand-name">OpenNOW</span>
+          <span className="login-brand-name">AINOW</span>
         </div>
 
         {/* Card */}

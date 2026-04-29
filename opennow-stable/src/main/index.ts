@@ -385,7 +385,7 @@ class DiscordStatusMonitor {
 const discordMonitor = new DiscordStatusMonitor();
 
 function getScreenshotDirectory(): string {
-  return join(app.getPath("pictures"), "OpenNOW", "Screenshots");
+  return join(app.getPath("pictures"), "AINOW", "Screenshots");
 }
 
 async function ensureScreenshotDirectory(): Promise<string> {
@@ -535,7 +535,7 @@ interface ActiveRecording {
 const activeRecordings = new Map<string, ActiveRecording>();
 
 function getRecordingsDirectory(): string {
-  return join(app.getPath("pictures"), "OpenNOW", "Recordings");
+  return join(app.getPath("pictures"), "AINOW", "Recordings");
 }
 
 function getThumbnailCacheDirectory(): string {
@@ -1755,7 +1755,7 @@ function registerIpcHandlers(): void {
     if (typeof rawFp !== "string") return null;
     if (rawFp.length > 4096) return null;
     try {
-      const allowedRoot = resolve(join(app.getPath("pictures"), "OpenNOW"));
+      const allowedRoot = resolve(join(app.getPath("pictures"), "AINOW"));
       const fpResolved = resolve(rawFp);
       const allowedRootReal = await realpath(allowedRoot).catch(() => allowedRoot);
       const fpReal = await realpath(fpResolved).catch(() => fpResolved);
@@ -1805,7 +1805,7 @@ function registerIpcHandlers(): void {
     const rawFp = payload?.filePath;
     if (typeof rawFp !== "string") return;
     try {
-      const allowedRoot = resolve(join(app.getPath("pictures"), "OpenNOW"));
+      const allowedRoot = resolve(join(app.getPath("pictures"), "AINOW"));
       const fpResolved = resolve(rawFp);
       const allowedRootReal = await realpath(allowedRoot).catch(() => allowedRoot);
       const fpReal = await realpath(fpResolved).catch(() => fpResolved);
@@ -2059,6 +2059,53 @@ function registerIpcHandlers(): void {
       settingsManager.set("windowWidth", width);
       settingsManager.set("windowHeight", height);
     }
+  });
+
+  // ── AINOW Cloud Feature IPC Handlers ────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_APPLY_PRESET, async (_event, presetId: string) => {
+    const { findPresetById } = await import("@shared/cloudFeatures");
+    const preset = findPresetById(presetId as import("@shared/cloudFeatures").StreamPresetId);
+    if (!preset) {
+      throw new Error(`Unknown stream preset: ${presetId}`);
+    }
+    settingsManager.set("resolution", preset.resolution);
+    settingsManager.set("fps", preset.fps);
+    settingsManager.set("maxBitrateMbps", preset.maxBitrateMbps);
+    settingsManager.set("codec", preset.codec);
+    settingsManager.set("colorQuality", preset.colorQuality);
+    settingsManager.set("streamPreset", preset.id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_GET_SESSION_HISTORY, async (_event, count?: number) => {
+    const { getSessionHistoryService } = await import("./services/sessionHistory");
+    const service = getSessionHistoryService();
+    return count ? service.getRecent(count) : service.getAll();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_GET_SESSION_SUMMARY, async () => {
+    const { getSessionHistoryService } = await import("./services/sessionHistory");
+    return getSessionHistoryService().getSummary();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_CLEAR_SESSION_HISTORY, async () => {
+    const { getSessionHistoryService } = await import("./services/sessionHistory");
+    getSessionHistoryService().clear();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_RUN_NETWORK_DIAGNOSTICS, async () => {
+    const { getNetworkDiagnosticsService } = await import("./services/networkDiagnostics");
+    return getNetworkDiagnosticsService().run();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_GET_LAST_DIAGNOSTICS, async () => {
+    const { getNetworkDiagnosticsService } = await import("./services/networkDiagnostics");
+    return getNetworkDiagnosticsService().getLastResult();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLOUD_GET_DATA_USAGE, async () => {
+    const { getSessionHistoryService } = await import("./services/sessionHistory");
+    return getSessionHistoryService().getMonthlyDataUsage();
   });
 }
 

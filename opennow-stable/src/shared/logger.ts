@@ -232,7 +232,7 @@ export class LogCapture {
    * Export logs as redacted text
    */
   exportRedacted(): string {
-    const header = `OpenNOW Logs Export\nGenerated: ${new Date().toISOString()}\nSource: ${this.processName}\nTotal Entries: ${this.entries.length}\n${"=".repeat(60)}\n\n`;
+    const header = `AINOW Logs Export\nGenerated: ${new Date().toISOString()}\nSource: ${this.processName}\nTotal Entries: ${this.entries.length}\n${"=".repeat(60)}\n\n`;
     const redactedLogs = createRedactedLogExport(this.entries);
     return header + redactedLogs;
   }

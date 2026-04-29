@@ -1,4 +1,4 @@
-import { Globe, Check, Search, X, Loader, Zap, Mic, FileDown, Wifi, Trash2, Heart, Users, ExternalLink, Monitor, Keyboard, Download, RefreshCcw, Info } from "lucide-react";
+import { Globe, Check, Search, X, Loader, Zap, Mic, FileDown, Wifi, Trash2, Heart, Users, ExternalLink, Monitor, Keyboard, Download, RefreshCcw, Info, Cloud, Activity } from "lucide-react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { JSX } from "react";
 
@@ -26,6 +26,17 @@ import {
 } from "@shared/gfn";
 import { formatShortcutForDisplay, normalizeShortcut, shortcutFromKeyboardEvent } from "../shortcuts";
 import { getCodecDecodeBadgeState, type CodecTestResult } from "../lib/codecDiagnostics";
+import {
+  STREAM_PRESETS,
+  detectActivePreset,
+  rateNetworkHealth,
+  formatDuration,
+} from "@shared/cloudFeatures";
+import type {
+  StreamPresetId,
+  NetworkDiagnosticsResult,
+  SessionHistorySummary,
+} from "@shared/cloudFeatures";
 
 interface SettingsPageProps {
   settings: Settings;
@@ -38,7 +49,7 @@ interface SettingsPageProps {
 
 type ThanksLoadState = "idle" | "loading" | "loaded" | "error";
 
-type SettingsSectionId = "stream" | "game" | "audio" | "input" | "interface" | "about" | "thanks";
+type SettingsSectionId = "stream" | "game" | "audio" | "input" | "interface" | "cloud" | "about" | "thanks";
 type SettingsSearchScopeId =
   | "stream-region"
   | "stream-video"
@@ -47,6 +58,7 @@ type SettingsSearchScopeId =
   | "audio"
   | "input"
   | "interface"
+  | "cloud"
   | "about"
   | "thanks";
 
@@ -104,6 +116,22 @@ const SETTINGS_SCOPE_SEARCH_TERMS: Record<SettingsSearchScopeId, readonly string
     "poster",
     "session timer",
     "counter",
+  ],
+  cloud: [
+    "cloud",
+    "preset",
+    "low bandwidth",
+    "balanced",
+    "high quality",
+    "ultra",
+    "auto-reconnect",
+    "reconnect",
+    "bandwidth",
+    "data usage",
+    "monitor",
+    "network diagnostics",
+    "session history",
+    "playtime",
   ],
   about: ["about", "update", "version", "logs", "cache", "download"],
   thanks: ["thanks", "contributors", "supporters", "sponsors", "community"],
@@ -228,11 +256,11 @@ const microphoneModeOptions: Array<{ value: MicrophoneMode; label: string }> = [
 function getMicrophonePermissionError(result: MicrophonePermissionResult): string {
   switch (result.status) {
     case "denied":
-      return "Microphone access was denied. Enable microphone access for OpenNOW in System Settings → Privacy & Security → Microphone.";
+      return "Microphone access was denied. Enable microphone access for AINOW in System Settings → Privacy & Security → Microphone.";
     case "restricted":
-      return "Microphone access is restricted by macOS and cannot be enabled from OpenNOW.";
+      return "Microphone access is restricted by macOS and cannot be enabled from AINOW.";
     case "unknown":
-      return "Unable to determine microphone permission status. Check macOS microphone privacy settings for OpenNOW.";
+      return "Unable to determine microphone permission status. Check macOS microphone privacy settings for AINOW.";
     default:
       return "Microphone access is not available.";
   }
@@ -486,6 +514,50 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
   const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
 
   const codecTestOpen = codecResults !== null || codecTesting;
+
+  // ── AINOW Cloud Feature state ──
+  const [diagnosticsResult, setDiagnosticsResult] = useState<NetworkDiagnosticsResult | null>(null);
+  const [diagnosticsRunning, setDiagnosticsRunning] = useState(false);
+  const [sessionSummary, setSessionSummary] = useState<SessionHistorySummary | null>(null);
+  const [monthlyUsage, setMonthlyUsage] = useState<{ bytesReceived: number; bytesSent: number } | null>(null);
+
+  const activePreset = useMemo<StreamPresetId>(
+    () => detectActivePreset(settings.resolution, settings.fps, settings.maxBitrateMbps, settings.codec, settings.colorQuality),
+    [settings.resolution, settings.fps, settings.maxBitrateMbps, settings.codec, settings.colorQuality],
+  );
+
+  const loadCloudData = useCallback(async () => {
+    try {
+      const [diag, summary, usage] = await Promise.all([
+        window.openNow.getLastDiagnostics(),
+        window.openNow.getSessionSummary(),
+        window.openNow.getDataUsage(),
+      ]);
+      setDiagnosticsResult(diag);
+      setSessionSummary(summary);
+      setMonthlyUsage(usage);
+    } catch (err) {
+      console.error("[Cloud] Failed to load cloud data:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "cloud") {
+      void loadCloudData();
+    }
+  }, [activeSection, loadCloudData]);
+
+  const runDiagnostics = useCallback(async () => {
+    setDiagnosticsRunning(true);
+    try {
+      const result = await window.openNow.runNetworkDiagnostics();
+      setDiagnosticsResult(result);
+    } catch (err) {
+      console.error("[Cloud] Diagnostics failed:", err);
+    } finally {
+      setDiagnosticsRunning(false);
+    }
+  }, []);
 
   // Region ping state
   const initialPingResults = useMemo(() => loadStoredPingResults(), []);
@@ -851,7 +923,7 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
 
         if (!cancelled) {
           const message = err instanceof DOMException && err.name === "NotAllowedError"
-            ? "Microphone access was denied. Allow access for OpenNOW and try again."
+            ? "Microphone access was denied. Allow access for AINOW and try again."
             : "Unable to access microphone devices right now.";
           setMicrophonePermissionError(message);
           setMicrophoneDevices([]);
@@ -1307,8 +1379,8 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
           <Heart size={18} />
         </div>
         <div className="settings-thanks-hero-copy">
-          <h2>Thanks for helping OpenNOW grow</h2>
-          <p>OpenNOW is shaped by contributors building the client and supporters backing the project behind the scenes.</p>
+          <h2>Thanks for helping AINOW grow</h2>
+          <p>AINOW is shaped by contributors building the client and supporters backing the project behind the scenes.</p>
         </div>
       </section>
 
@@ -1330,7 +1402,7 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
             <Users size={18} />
             <div>
               <h2>Contributors</h2>
-              <p className="settings-section-subtitle">People improving OpenNOW in code, fixes, and features.</p>
+              <p className="settings-section-subtitle">People improving AINOW in code, fixes, and features.</p>
             </div>
           </div>
           {thanksLoadState === "loading" && !thanksData ? (
@@ -1419,9 +1491,10 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
   const showAudio = showAll ? scopeMatchesSearch("audio") : activeSection === "audio";
   const showInput = showAll ? scopeMatchesSearch("input") : activeSection === "input";
   const showInterface = showAll ? scopeMatchesSearch("interface") : activeSection === "interface";
+  const showCloud = showAll ? scopeMatchesSearch("cloud") : activeSection === "cloud";
   const showAbout = showAll ? scopeMatchesSearch("about") : activeSection === "about";
   const showThanks = showAll ? scopeMatchesSearch("thanks") : activeSection === "thanks";
-  const hasAnySearchMatches = showStream || showGame || showAudio || showInput || showInterface || showAbout || showThanks;
+  const hasAnySearchMatches = showStream || showGame || showAudio || showInput || showInterface || showCloud || showAbout || showThanks;
   const shouldRenderSettingsSections = showAll || activeSection !== "thanks";
 
   return (
@@ -1460,6 +1533,7 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
             { id: "audio" as SettingsSectionId, label: "Audio", icon: <Mic size={15} /> },
             { id: "input" as SettingsSectionId, label: "Input", icon: <Keyboard size={15} /> },
             { id: "interface" as SettingsSectionId, label: "Interface", icon: <Monitor size={15} /> },
+            { id: "cloud" as SettingsSectionId, label: "Cloud", icon: <Cloud size={15} /> },
             { id: "about" as SettingsSectionId, label: "About", icon: <Info size={15} /> },
             { id: "thanks" as SettingsSectionId, label: "Thanks", icon: <Heart size={15} /> },
           ]).map(item => (
@@ -2513,7 +2587,7 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                   <div className="settings-row">
                     <label className="settings-label">
                       Hide Server Selector
-                      <span className="settings-hint">Skip the free-tier server selection dialog and always launch with OpenNOW's default routing.</span>
+                      <span className="settings-hint">Skip the free-tier server selection dialog and always launch with AINOW's default routing.</span>
                     </label>
                     <label className="settings-toggle">
                       <input
@@ -2743,6 +2817,278 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
           </>
         )}
 
+        {/* ═══ CLOUD ══════════════════════════════════════ */}
+        {showCloud && (
+          <section className="settings-section">
+            {showAll && <div className="settings-section-context">Cloud</div>}
+            <div className="settings-section-header">
+              <Cloud size={18} />
+              <h2>Cloud Features</h2>
+            </div>
+            <div className="settings-section-body">
+              {/* Stream Quality Presets */}
+              <div className="settings-row settings-row--column">
+                <label className="settings-label">
+                  Stream Quality Preset
+                  <span className="settings-hint">One-click presets that adjust resolution, FPS, bitrate, and codec together</span>
+                </label>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "8px" }}>
+                  {STREAM_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className={`settings-badge ${activePreset === preset.id ? "settings-badge--active" : ""}`}
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: "8px",
+                        border: activePreset === preset.id ? "1px solid #76b900" : "1px solid rgba(255,255,255,0.12)",
+                        background: activePreset === preset.id ? "rgba(118,185,0,0.15)" : "rgba(255,255,255,0.05)",
+                        color: activePreset === preset.id ? "#76b900" : "rgba(255,255,255,0.7)",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        transition: "all 0.15s ease",
+                      }}
+                      onClick={async () => {
+                        try {
+                          await window.openNow.applyStreamPreset(preset.id);
+                          onSettingChange("resolution", preset.resolution);
+                          onSettingChange("fps", preset.fps);
+                          onSettingChange("maxBitrateMbps", preset.maxBitrateMbps);
+                          onSettingChange("codec", preset.codec);
+                          onSettingChange("colorQuality", preset.colorQuality);
+                        } catch (err) {
+                          console.error("[Cloud] Failed to apply preset:", err);
+                        }
+                      }}
+                    >
+                      <div style={{ fontWeight: 600 }}>{preset.label}</div>
+                      <div style={{ fontSize: "11px", opacity: 0.7, marginTop: "2px" }}>{preset.description}</div>
+                      <div style={{ fontSize: "10px", opacity: 0.5, marginTop: "4px" }}>
+                        {preset.resolution} | {preset.fps}fps | {preset.maxBitrateMbps}Mbps | {preset.codec}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {activePreset === "custom" && (
+                  <span className="settings-subtle-hint" style={{ marginTop: "6px" }}>
+                    Current settings don't match any preset — using custom configuration.
+                  </span>
+                )}
+              </div>
+
+              {/* Auto-Reconnect */}
+              <div className="settings-row">
+                <label className="settings-label">
+                  Auto-Reconnect
+                  <span className="settings-hint">Automatically retry when the stream connection drops</span>
+                </label>
+                <button
+                  type="button"
+                  className={`settings-toggle ${settings.autoReconnectEnabled ? "active" : ""}`}
+                  onClick={() => onSettingChange("autoReconnectEnabled", !settings.autoReconnectEnabled)}
+                >
+                  <span className="settings-toggle-slider" />
+                </button>
+              </div>
+
+              {settings.autoReconnectEnabled && (
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">Max Retries</label>
+                    <span className="settings-range-value">{settings.autoReconnectMaxRetries}</span>
+                  </div>
+                  <input
+                    type="range"
+                    className="settings-slider"
+                    min={1}
+                    max={20}
+                    step={1}
+                    value={settings.autoReconnectMaxRetries}
+                    onChange={(e) => onSettingChange("autoReconnectMaxRetries", parseInt(e.target.value, 10))}
+                  />
+                </div>
+              )}
+
+              {/* Bandwidth Monitor */}
+              <div className="settings-row">
+                <label className="settings-label">
+                  Bandwidth Monitor
+                  <span className="settings-hint">Track data usage and set monthly limits</span>
+                </label>
+                <button
+                  type="button"
+                  className={`settings-toggle ${settings.bandwidthMonitorEnabled ? "active" : ""}`}
+                  onClick={() => onSettingChange("bandwidthMonitorEnabled", !settings.bandwidthMonitorEnabled)}
+                >
+                  <span className="settings-toggle-slider" />
+                </button>
+              </div>
+
+              {settings.bandwidthMonitorEnabled && (
+                <>
+                  <div className="settings-row settings-row--column">
+                    <div className="settings-row-top">
+                      <label className="settings-label">Monthly Data Cap (GB)</label>
+                      <span className="settings-range-value">
+                        {settings.bandwidthMonthlyCapGb === 0 ? "Unlimited" : `${settings.bandwidthMonthlyCapGb} GB`}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      className="settings-slider"
+                      min={0}
+                      max={2000}
+                      step={50}
+                      value={settings.bandwidthMonthlyCapGb}
+                      onChange={(e) => onSettingChange("bandwidthMonthlyCapGb", parseInt(e.target.value, 10))}
+                    />
+                    <span className="settings-subtle-hint">
+                      Set to 0 for unlimited. You'll be warned at {settings.bandwidthWarnAtPercent}% usage.
+                    </span>
+                  </div>
+
+                  {monthlyUsage && (
+                    <div className="settings-row settings-row--column">
+                      <label className="settings-label">This Month's Usage</label>
+                      <div style={{ display: "flex", gap: "16px", fontSize: "13px", color: "rgba(255,255,255,0.7)", marginTop: "4px" }}>
+                        <span>Downloaded: {formatBytes(monthlyUsage.bytesReceived)}</span>
+                        <span>Uploaded: {formatBytes(monthlyUsage.bytesSent)}</span>
+                        <span>Total: {formatBytes(monthlyUsage.bytesReceived + monthlyUsage.bytesSent)}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Session History */}
+              <div className="settings-row">
+                <label className="settings-label">
+                  Session History
+                  <span className="settings-hint">Track your gaming sessions locally</span>
+                </label>
+                <button
+                  type="button"
+                  className={`settings-toggle ${settings.sessionHistoryEnabled ? "active" : ""}`}
+                  onClick={() => onSettingChange("sessionHistoryEnabled", !settings.sessionHistoryEnabled)}
+                >
+                  <span className="settings-toggle-slider" />
+                </button>
+              </div>
+
+              {settings.sessionHistoryEnabled && sessionSummary && sessionSummary.totalSessions > 0 && (
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Session Stats</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px", color: "rgba(255,255,255,0.7)", marginTop: "4px" }}>
+                    <span>Total Sessions: {sessionSummary.totalSessions}</span>
+                    <span>Total Playtime: {formatDuration(sessionSummary.totalPlaytimeMs)}</span>
+                    <span>Avg Session: {formatDuration(sessionSummary.averageSessionDurationMs)}</span>
+                    <span>Data Used: {formatBytes(sessionSummary.totalBytesReceived + sessionSummary.totalBytesSent)}</span>
+                    {sessionSummary.mostPlayedGame && (
+                      <span style={{ gridColumn: "1 / -1" }}>
+                        Most Played: {sessionSummary.mostPlayedGame} ({sessionSummary.mostPlayedGameSessions} sessions)
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="settings-delete-cache-btn"
+                    style={{ marginTop: "8px", width: "fit-content" }}
+                    onClick={async () => {
+                      if (!window.confirm("Clear all session history? This cannot be undone.")) return;
+                      try {
+                        await window.openNow.clearSessionHistory();
+                        setSessionSummary(null);
+                      } catch (err) {
+                        console.error("[Cloud] Failed to clear history:", err);
+                      }
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    Clear History
+                  </button>
+                </div>
+              )}
+
+              {/* Network Diagnostics */}
+              <div className="settings-row settings-row--column">
+                <label className="settings-label">
+                  <Activity size={14} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+                  Network Diagnostics
+                  <span className="settings-hint">Run a quick health check on your connection</span>
+                </label>
+                <button
+                  type="button"
+                  className="settings-action-btn"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(118,185,0,0.1)",
+                    color: "#76b900",
+                    cursor: diagnosticsRunning ? "not-allowed" : "pointer",
+                    fontSize: "13px",
+                    marginTop: "8px",
+                    width: "fit-content",
+                    opacity: diagnosticsRunning ? 0.6 : 1,
+                  }}
+                  disabled={diagnosticsRunning}
+                  onClick={runDiagnostics}
+                >
+                  {diagnosticsRunning ? <Loader size={14} className="settings-spinner" /> : <Zap size={14} />}
+                  {diagnosticsRunning ? "Running..." : "Run Diagnostics"}
+                </button>
+
+                {diagnosticsResult && diagnosticsResult.status === "completed" && (
+                  <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", fontSize: "13px" }}>
+                    {(() => {
+                      const health = rateNetworkHealth(diagnosticsResult);
+                      return (
+                        <div style={{ gridColumn: "1 / -1", marginBottom: "4px" }}>
+                          <span style={{ color: health.color, fontWeight: 600, fontSize: "14px" }}>
+                            {health.label} ({health.score}/100)
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={{ fontSize: "11px", opacity: 0.6 }}>Latency</div>
+                      <div>{diagnosticsResult.latencyMs} ms</div>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={{ fontSize: "11px", opacity: 0.6 }}>Jitter</div>
+                      <div>{diagnosticsResult.jitterMs} ms</div>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={{ fontSize: "11px", opacity: 0.6 }}>Packet Loss</div>
+                      <div>{diagnosticsResult.packetLossPercent}%</div>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={{ fontSize: "11px", opacity: 0.6 }}>Est. Download</div>
+                      <div>{diagnosticsResult.downloadMbps} Mbps</div>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={{ fontSize: "11px", opacity: 0.6 }}>Est. Upload</div>
+                      <div>{diagnosticsResult.uploadMbps} Mbps</div>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={{ fontSize: "11px", opacity: 0.6 }}>DNS Resolution</div>
+                      <div>{diagnosticsResult.dnsResolutionMs} ms</div>
+                    </div>
+                  </div>
+                )}
+                {diagnosticsResult && diagnosticsResult.status === "error" && (
+                  <div style={{ marginTop: "8px", color: "#ef4444", fontSize: "13px" }}>
+                    Diagnostics failed: {diagnosticsResult.errorMessage}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         {showAbout && (
           <section className="settings-section">
             {showAll && <div className="settings-section-context">About</div>}
@@ -2832,10 +3178,10 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                 <label className="settings-label settings-label--wrap">
                   Automatically Check for Updates
                   <span className="settings-hint">
-                    When on, packaged builds check GitHub Releases in the background after startup and periodically while OpenNOW is running.
+                    When on, packaged builds check GitHub Releases in the background after startup and periodically while AINOW is running.
                   </span>
                   <span className="settings-hint">
-                    When off, OpenNOW stays on the current version unless you use the manual update buttons below.
+                    When off, AINOW stays on the current version unless you use the manual update buttons below.
                   </span>
                 </label>
                 <label className="settings-toggle">
