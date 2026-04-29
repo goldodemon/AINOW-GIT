@@ -1,7 +1,7 @@
 import { Client } from "discord-rpc";
 
 /**
- * Discord Application ID for OpenNOW.
+ * Discord Application ID for AINOW.
  * Register an application at https://discord.com/developers/applications
  * and paste its Client ID here.
  */
@@ -79,7 +79,7 @@ export async function setActivity(gameName: string, startTimestamp: Date, appId?
   try {
     await rpcClient.setActivity({
       details: gameName,
-      state: "Streaming via OpenNow",
+      state: "Streaming via AINOW",
       startTimestamp,
       instance: false,
     });

@@ -233,6 +233,24 @@ export interface Settings {
   targetRefreshRate: number;
   /** Client-side FPS limiter (0 = unlimited) */
   fpsLimiter: number;
+
+  // ── AINOW Cloud Features ──────────────────────────────────────
+  /** Active stream quality preset (AINOW cloud feature) */
+  streamPreset: import("./cloudFeatures").StreamPresetId;
+  /** Enable automatic reconnection after connection drops */
+  autoReconnectEnabled: boolean;
+  /** Maximum reconnect attempts before giving up */
+  autoReconnectMaxRetries: number;
+  /** Enable bandwidth usage monitoring */
+  bandwidthMonitorEnabled: boolean;
+  /** Monthly data cap in GB (0 = unlimited) */
+  bandwidthMonthlyCapGb: number;
+  /** Warn when monthly usage exceeds this percentage */
+  bandwidthWarnAtPercent: number;
+  /** Record session history locally */
+  sessionHistoryEnabled: boolean;
+  /** Maximum session history entries to retain */
+  sessionHistoryMaxEntries: number;
 }
 
 export const DEFAULT_STREAM_PREFERENCES: Readonly<Pick<Settings, "codec" | "colorQuality">> = Object.freeze({
@@ -909,6 +927,22 @@ export interface OpenNowApi {
   getThanksData(): Promise<ThankYouDataResult>;
   /** Clear Discord rich presence activity */
   clearDiscordActivity(): Promise<void>;
+
+  // ── AINOW Cloud Features ──────────────────────────────────────
+  /** Apply a stream quality preset, updating multiple settings at once */
+  applyStreamPreset(presetId: import("./cloudFeatures").StreamPresetId): Promise<void>;
+  /** Get recent session history entries */
+  getSessionHistory(count?: number): Promise<import("./cloudFeatures").SessionHistoryEntry[]>;
+  /** Get aggregate session history summary */
+  getSessionSummary(): Promise<import("./cloudFeatures").SessionHistorySummary>;
+  /** Clear all session history */
+  clearSessionHistory(): Promise<void>;
+  /** Run a network diagnostics check */
+  runNetworkDiagnostics(): Promise<import("./cloudFeatures").NetworkDiagnosticsResult>;
+  /** Get the most recent diagnostics result */
+  getLastDiagnostics(): Promise<import("./cloudFeatures").NetworkDiagnosticsResult>;
+  /** Get current month data usage */
+  getDataUsage(): Promise<{ bytesReceived: number; bytesSent: number }>;
 }
 
 export interface ScreenshotSaveRequest {

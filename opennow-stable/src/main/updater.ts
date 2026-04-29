@@ -211,7 +211,7 @@ export function createAppUpdaterController(options: AppUpdaterControllerOptions)
       downloadedVersion: undefined,
       progress: undefined,
       lastCheckedAt: Date.now(),
-      message: `OpenNOW ${info.version} is available. Download when ready.`,
+      message: `AINOW ${info.version} is available. Download when ready.`,
     });
   });
 
@@ -224,7 +224,7 @@ export function createAppUpdaterController(options: AppUpdaterControllerOptions)
       downloadedVersion: undefined,
       progress: undefined,
       lastCheckedAt: Date.now(),
-      message: "OpenNOW is up to date.",
+      message: "AINOW is up to date.",
     });
   });
 
@@ -238,7 +238,7 @@ export function createAppUpdaterController(options: AppUpdaterControllerOptions)
         total: progress.total,
         bytesPerSecond: progress.bytesPerSecond,
       },
-      message: `Downloading OpenNOW ${availableUpdateInfo?.version ?? "update"}…`,
+      message: `Downloading AINOW ${availableUpdateInfo?.version ?? "update"}…`,
     });
   });
 
@@ -249,7 +249,7 @@ export function createAppUpdaterController(options: AppUpdaterControllerOptions)
       availableVersion: info.version,
       downloadedVersion: info.version,
       progress: undefined,
-      message: `OpenNOW ${info.version} is ready to install. Restart when convenient.`,
+      message: `AINOW ${info.version} is ready to install. Restart when convenient.`,
     });
   });
 
@@ -337,7 +337,7 @@ export function createAppUpdaterController(options: AppUpdaterControllerOptions)
           total: 0,
           bytesPerSecond: 0,
         },
-        message: `Downloading OpenNOW ${availableUpdateInfo.version}…`,
+        message: `Downloading AINOW ${availableUpdateInfo.version}…`,
       });
 
       try {
@@ -364,7 +364,7 @@ export function createAppUpdaterController(options: AppUpdaterControllerOptions)
 
       updateState({
         status: "downloaded",
-        message: `Restarting to install OpenNOW ${downloadedUpdateInfo.version}…`,
+        message: `Restarting to install AINOW ${downloadedUpdateInfo.version}…`,
       });
 
       setImmediate(() => {

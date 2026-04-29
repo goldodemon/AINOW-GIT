@@ -276,7 +276,7 @@ export function Navbar({
         <div className="navbar-brand">
           <Zap size={16} strokeWidth={2.5} />
         </div>
-        <span className="navbar-logo-text">OpenNOW</span>
+        <span className="navbar-logo-text">AINOW</span>
       </div>
 
       <div className="navbar-nav">

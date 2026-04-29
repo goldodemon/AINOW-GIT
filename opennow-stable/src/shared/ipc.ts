@@ -67,6 +67,14 @@ export const IPC_CHANNELS = {
   PRINTEDWASTE_SERVER_MAPPING_FETCH: "printedwaste:server-mapping-fetch",
   // Discord Rich Presence
   DISCORD_CLEAR_ACTIVITY: "discord:clear-activity",
+  // AINOW Cloud Features
+  CLOUD_APPLY_PRESET: "cloud:apply-preset",
+  CLOUD_GET_SESSION_HISTORY: "cloud:get-session-history",
+  CLOUD_GET_SESSION_SUMMARY: "cloud:get-session-summary",
+  CLOUD_CLEAR_SESSION_HISTORY: "cloud:clear-session-history",
+  CLOUD_RUN_NETWORK_DIAGNOSTICS: "cloud:run-network-diagnostics",
+  CLOUD_GET_LAST_DIAGNOSTICS: "cloud:get-last-diagnostics",
+  CLOUD_GET_DATA_USAGE: "cloud:get-data-usage",
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

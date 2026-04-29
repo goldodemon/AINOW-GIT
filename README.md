@@ -69,6 +69,15 @@ The project aims to give players a transparent, customizable alternative to the 
 - Built-in screenshots, recording, microphone controls, and controller-friendly navigation
 - Local settings storage and zero-telemetry project direction
 
+### Cloud Features
+
+- **Stream Quality Presets** - One-click presets for Low Bandwidth, Balanced, High Quality, and Ultra modes
+- **Auto-Reconnect** - Automatically reconnect to sessions after connection drops with configurable retry behavior
+- **Bandwidth Monitor** - Real-time bandwidth usage tracking with configurable limits and alerts
+- **Network Diagnostics** - Built-in network health checks including jitter, packet loss, and route analysis
+- **Session History** - Track and browse your past gaming sessions with playtime analytics
+- **Data Usage Tracking** - Monitor cumulative data consumption per session and over time
+
 ## Quick Start
 
 ### Download

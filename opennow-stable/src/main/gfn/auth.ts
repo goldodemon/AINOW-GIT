@@ -209,10 +209,10 @@ async function waitForAuthorizationCode(port: number, timeoutMs: number): Promis
       const code = url.searchParams.get("code");
       const error = url.searchParams.get("error");
 
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>OpenNOW Login</title></head><body style="font-family:Segoe UI,Arial,sans-serif;background:#0b1220;color:#dbe7ff;display:flex;justify-content:center;align-items:center;height:100vh"><div style="background:#111a2c;padding:24px 28px;border:1px solid #30425f;border-radius:12px;max-width:460px"><h2 style="margin-top:0">OpenNOW Login</h2><p>${
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>AINOW Login</title></head><body style="font-family:Segoe UI,Arial,sans-serif;background:#0b1220;color:#dbe7ff;display:flex;justify-content:center;align-items:center;height:100vh"><div style="background:#111a2c;padding:24px 28px;border:1px solid #30425f;border-radius:12px;max-width:460px"><h2 style="margin-top:0">AINOW Login</h2><p>${
         code
-          ? "Login complete. You can close this window and return to OpenNOW Stable."
-          : "Login failed or was cancelled. You can close this window and return to OpenNOW Stable."
+          ? "Login complete. You can close this window and return to AINOW."
+          : "Login failed or was cancelled. You can close this window and return to AINOW."
       }</p></div></body></html>`;
 
       response.statusCode = 200;

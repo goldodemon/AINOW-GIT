@@ -1091,7 +1091,7 @@ export function StreamView({
   const refreshScreenshots = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable gallery.");
+      setGalleryError("Screenshot API unavailable. Restart AINOW to enable gallery.");
       return;
     }
     try {
@@ -1106,7 +1106,7 @@ export function StreamView({
   const captureScreenshot = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable capture.");
+      setGalleryError("Screenshot API unavailable. Restart AINOW to enable capture.");
       return;
     }
     if (isSavingScreenshot) {
@@ -1151,7 +1151,7 @@ export function StreamView({
   const handleDeleteScreenshot = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable gallery.");
+      setGalleryError("Screenshot API unavailable. Restart AINOW to enable gallery.");
       return;
     }
     if (!selectedScreenshot) return;
@@ -1169,7 +1169,7 @@ export function StreamView({
   const handleSaveScreenshotAs = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable gallery.");
+      setGalleryError("Screenshot API unavailable. Restart AINOW to enable gallery.");
       return;
     }
     if (!selectedScreenshot) return;
@@ -1221,7 +1221,7 @@ export function StreamView({
     }
 
     if (!recordingApiAvailable) {
-      setRecordingError("Recording API unavailable. Restart OpenNOW to enable recording.");
+      setRecordingError("Recording API unavailable. Restart AINOW to enable recording.");
       return;
     }
 
