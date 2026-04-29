@@ -17,6 +17,10 @@ import type {
     ThankYouContributor,
     ThankYouSupporter,
     AppUpdaterState,
+    StreamQualityPreset,
+    ReflexMode,
+    FrameBufferDepth,
+    ForceCodecMode,
   } from "@shared/gfn";
 import {
   colorQualityRequiresHevc,
@@ -76,6 +80,16 @@ const SETTINGS_SCOPE_SEARCH_TERMS: Record<SettingsSearchScopeId, readonly string
     "l4s",
     "cloud gsync",
     "video acceleration",
+    "custom resolution",
+    "custom fps",
+    "resolution scaling",
+    "scale",
+    "reflex",
+    "hdr",
+    "preset",
+    "performance",
+    "balanced",
+    "ultra",
   ],
   "stream-codec-diagnostics": [
     "stream",
@@ -179,12 +193,18 @@ const STATIC_ASPECT_RATIO_PRESETS: AspectRatioPreset[] = [
   { value: "16:10", label: "16:10 (Widescreen)" },
   { value: "21:9", label: "21:9 (Ultrawide)" },
   { value: "32:9", label: "32:9 (Super Ultrawide)" },
+  { value: "4:3", label: "4:3 (Legacy)" },
+  { value: "5:4", label: "5:4 (Legacy)" },
 ];
 
 const STATIC_RESOLUTION_PRESETS: ResolutionPreset[] = [
+  { value: "1024x768", label: "XGA (4:3)" },
   { value: "1280x720", label: "720p (16:9)" },
   { value: "1280x800", label: "720p (16:10)" },
+  { value: "1280x960", label: "960p (4:3)" },
+  { value: "1280x1024", label: "SXGA (5:4)" },
   { value: "1440x900", label: "WXGA (16:10)" },
+  { value: "1600x1200", label: "UXGA (4:3)" },
   { value: "1680x1050", label: "WSXGA (16:10)" },
   { value: "1920x1080", label: "1080p (16:9)" },
   { value: "1920x1200", label: "1200p (16:10)" },
@@ -207,6 +227,72 @@ const STATIC_FPS_PRESETS: FpsPreset[] = [
   { value: 240 },
   { value: 360 },
 ];
+
+/* ── Stream Quality Presets ────────────────────────────────────────── */
+
+interface QualityPresetConfig {
+  resolution: string;
+  fps: number;
+  maxBitrateMbps: number;
+  codec: VideoCodec;
+}
+
+const QUALITY_PRESETS: Record<Exclude<StreamQualityPreset, "custom">, { label: string; description: string; config: QualityPresetConfig }> = {
+  performance: {
+    label: "Performance",
+    description: "Lower quality, best for weak connections",
+    config: { resolution: "1280x720", fps: 60, maxBitrateMbps: 20, codec: "H264" },
+  },
+  balanced: {
+    label: "Balanced",
+    description: "Good balance of quality and performance",
+    config: { resolution: "1920x1080", fps: 60, maxBitrateMbps: 50, codec: "H264" },
+  },
+  quality: {
+    label: "Quality",
+    description: "High quality for stable connections",
+    config: { resolution: "1920x1080", fps: 120, maxBitrateMbps: 80, codec: "H265" },
+  },
+  ultra: {
+    label: "Ultra",
+    description: "Maximum quality, requires strong connection",
+    config: { resolution: "2560x1440", fps: 120, maxBitrateMbps: 120, codec: "H265" },
+  },
+};
+
+const QUALITY_PRESET_ORDER: Exclude<StreamQualityPreset, "custom">[] = ["performance", "balanced", "quality", "ultra"];
+
+const REFLEX_OPTIONS: { value: ReflexMode; label: string; description: string }[] = [
+  { value: "auto", label: "Auto", description: "Enabled when FPS ≥ 120" },
+  { value: "on", label: "Always On", description: "Force enable" },
+  { value: "off", label: "Off", description: "Disabled" },
+];
+
+const RESOLUTION_SCALE_MIN = 50;
+const RESOLUTION_SCALE_MAX = 200;
+const RESOLUTION_SCALE_STEP = 10;
+
+const FRAME_BUFFER_OPTIONS: { value: FrameBufferDepth; label: string; description: string }[] = [
+  { value: 0, label: "0 Frames", description: "Lowest latency — may micro-stutter" },
+  { value: 1, label: "1 Frame", description: "Balanced (default)" },
+  { value: 2, label: "2 Frames", description: "Smoothest — adds a few ms of lag" },
+];
+
+const FORCE_CODEC_OPTIONS: { value: ForceCodecMode; label: string; description: string }[] = [
+  { value: "auto", label: "Auto", description: "Let the client decide" },
+  { value: "H264", label: "H.264", description: "Lowest decode latency on older CPUs" },
+  { value: "H265", label: "HEVC", description: "Better quality at same bitrate" },
+  { value: "AV1", label: "AV1", description: "Best efficiency, needs modern GPU decoder" },
+];
+
+const SUPER_SAMPLING_RESOLUTIONS = [
+  { value: "2560x1440", label: "1440p" },
+  { value: "3840x2160", label: "4K" },
+  { value: "5120x2880", label: "5K" },
+];
+
+const REFRESH_RATE_OPTIONS = [0, 60, 75, 120, 144, 165, 240];
+const FPS_LIMITER_OPTIONS = [0, 30, 60, 75, 120, 144, 240];
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
 const shortcutExamples = "Examples: F3, Ctrl+Shift+Q, Ctrl+Shift+K";
@@ -835,6 +921,47 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
       }
     },
     [handleChange, settings.colorQuality]
+  );
+
+  const handleQualityPresetChange = useCallback(
+    (preset: StreamQualityPreset) => {
+      handleChange("streamQualityPreset", preset);
+      if (preset !== "custom") {
+        const config = QUALITY_PRESETS[preset].config;
+        handleChange("resolution", config.resolution);
+        handleChange("fps", config.fps);
+        handleChange("maxBitrateMbps", config.maxBitrateMbps);
+        handleChange("codec", config.codec);
+        handleChange("customResolutionEnabled", false);
+        handleChange("customFpsEnabled", false);
+        handleChange("resolutionScale", 100);
+      }
+    },
+    [handleChange]
+  );
+
+  const handleCustomResolutionToggle = useCallback(
+    (enabled: boolean) => {
+      handleChange("customResolutionEnabled", enabled);
+      handleChange("streamQualityPreset", "custom");
+    },
+    [handleChange]
+  );
+
+  const handleCustomFpsToggle = useCallback(
+    (enabled: boolean) => {
+      handleChange("customFpsEnabled", enabled);
+      handleChange("streamQualityPreset", "custom");
+    },
+    [handleChange]
+  );
+
+  const handleManualSettingChange = useCallback(
+    <K extends keyof Settings>(key: K, value: Settings[K]) => {
+      handleChange(key, value);
+      handleChange("streamQualityPreset", "custom");
+    },
+    [handleChange]
   );
 
   // Microphone devices
@@ -1740,6 +1867,30 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                 <h2>Video</h2>
               </div>
               <div className="settings-rows">
+                {/* Stream Quality Presets */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Quality Preset</label>
+                  <div className="settings-chip-row">
+                    {QUALITY_PRESET_ORDER.map((preset) => (
+                      <button
+                        key={preset}
+                        className={`settings-chip ${settings.streamQualityPreset === preset ? "active" : ""}`}
+                        onClick={() => handleQualityPresetChange(preset)}
+                        title={QUALITY_PRESETS[preset].description}
+                      >
+                        <span>{QUALITY_PRESETS[preset].label}</span>
+                      </button>
+                    ))}
+                    <button
+                      className={`settings-chip ${settings.streamQualityPreset === "custom" ? "active" : ""}`}
+                      onClick={() => handleQualityPresetChange("custom")}
+                      title="Manual configuration"
+                    >
+                      <span>Custom</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Aspect Ratio — static chips */}
                 <div className="settings-row">
                   <label className="settings-label">Aspect Ratio</label>
@@ -1796,6 +1947,76 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                   </div>
                 </div>
 
+                {/* Custom Resolution */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label">Custom Resolution</label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.customResolutionEnabled}
+                        onChange={(e) => handleCustomResolutionToggle(e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  {settings.customResolutionEnabled && (
+                    <input
+                      type="text"
+                      className="settings-text-input"
+                      placeholder="e.g. 2560x1080"
+                      value={settings.customResolution}
+                      onChange={(e) => handleChange("customResolution", e.target.value)}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        if (val && /^\d+x\d+$/.test(val)) {
+                          handleChange("customResolution", val);
+                        }
+                      }}
+                    />
+                  )}
+                  <span className="settings-subtle-hint">
+                    Enter any resolution as WIDTHxHEIGHT (e.g. 1600x900, 3840x1600).
+                  </span>
+                </div>
+
+                {/* Resolution Scaling */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">Resolution Scale</label>
+                    <span className="settings-value-badge">{settings.resolutionScale}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    className="settings-slider"
+                    min={RESOLUTION_SCALE_MIN}
+                    max={RESOLUTION_SCALE_MAX}
+                    step={RESOLUTION_SCALE_STEP}
+                    value={settings.resolutionScale}
+                    onChange={(e) => handleManualSettingChange("resolutionScale", parseInt(e.target.value, 10))}
+                  />
+                  <span className="settings-subtle-hint">
+                    Multiplier applied to the chosen resolution. 100% = native, 50% = half, 200% = double.
+                  </span>
+                  {settings.resolutionScale !== 100 && (() => {
+                    const baseRes = settings.customResolutionEnabled && settings.customResolution
+                      ? settings.customResolution
+                      : settings.resolution;
+                    const parts = baseRes.split("x");
+                    const w = parseInt(parts[0] ?? "", 10);
+                    const h = parseInt(parts[1] ?? "", 10);
+                    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+                      const scale = settings.resolutionScale / 100;
+                      return (
+                        <span className="settings-subtle-hint" style={{ color: "var(--accent)", marginTop: 2 }}>
+                          Effective resolution: {Math.round(w * scale)}x{Math.round(h * scale)}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 {/* FPS — dynamic or static chips */}
                 <div className="settings-row">
                   <label className="settings-label">FPS</label>
@@ -1810,6 +2031,40 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Custom FPS */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label">Custom FPS</label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.customFpsEnabled}
+                        onChange={(e) => handleCustomFpsToggle(e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  {settings.customFpsEnabled && (
+                    <input
+                      type="number"
+                      className="settings-text-input"
+                      placeholder="e.g. 75"
+                      min={1}
+                      max={500}
+                      value={settings.customFps}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (Number.isFinite(v) && v > 0 && v <= 500) {
+                          handleChange("customFps", v);
+                        }
+                      }}
+                    />
+                  )}
+                  <span className="settings-subtle-hint">
+                    Override with any FPS value (e.g. 75, 100, 200). Server support varies.
+                  </span>
                 </div>
 
                 {/* Codec */}
@@ -1901,11 +2156,33 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                     type="range"
                     className="settings-slider"
                     min={5}
-                    max={150}
+                    max={settings.lanMode ? 200 : 150}
                     step={5}
                     value={settings.maxBitrateMbps}
                     onChange={(e) => handleChange("maxBitrateMbps", parseInt(e.target.value, 10))}
                   />
+                  {(() => {
+                    const baseRes = settings.customResolutionEnabled && settings.customResolution
+                      ? settings.customResolution
+                      : settings.resolution;
+                    const parts = baseRes.split("x");
+                    const w = parseInt(parts[0] ?? "", 10);
+                    const h = parseInt(parts[1] ?? "", 10);
+                    const fps = settings.customFpsEnabled && settings.customFps > 0 ? settings.customFps : settings.fps;
+                    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 && fps > 0) {
+                      const scale = settings.resolutionScale / 100;
+                      const totalPixels = Math.round(w * scale) * Math.round(h * scale) * fps;
+                      const bpp = (settings.maxBitrateMbps * 1_000_000) / totalPixels;
+                      const quality = bpp >= 0.1 ? "good" : bpp >= 0.05 ? "medium" : "low";
+                      const qualityLabel = bpp >= 0.1 ? "Excellent" : bpp >= 0.05 ? "Adequate" : "Low";
+                      return (
+                        <span className={`settings-subtle-hint region-ping-value ${quality}`} style={{ marginTop: 2 }}>
+                          {bpp.toFixed(3)} bits/pixel · {qualityLabel} quality for {Math.round(w * scale)}x{Math.round(h * scale)}@{fps}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="settings-row settings-row--column">
@@ -1949,6 +2226,312 @@ export function SettingsPage({ settings, regions, onSettingChange, codecResults,
                   </div>
                   <span className="settings-subtle-hint">
                     Request Cloud G-Sync (VRR) on newly created sessions. Smooths frame pacing on variable frame rate streams. Requires a VRR-capable display. The service may ignore this request depending on your subscription tier.
+                  </span>
+                </div>
+
+                {/* NVIDIA Reflex */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">NVIDIA Reflex</label>
+                  <div className="settings-chip-row">
+                    {REFLEX_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        className={`settings-chip ${settings.reflexMode === option.value ? "active" : ""}`}
+                        onClick={() => handleChange("reflexMode", option.value)}
+                        title={option.description}
+                      >
+                        <span>{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Reduces input latency. Auto enables Reflex when streaming at 120+ FPS.
+                  </span>
+                </div>
+
+                {/* HDR Mode */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">
+                        HDR Streaming
+                        <span className="settings-inline-badge settings-inline-badge--beta">Experimental</span>
+                      </span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.enableHdr}
+                        onChange={(e) => handleChange("enableHdr", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Enable HDR streaming for supported displays. Note: may cause resolution downscaling on some servers. Requires HDR-capable display and 10-bit color depth.
+                  </span>
+                </div>
+
+                {/* ── Network & Buffer Management ──────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Network &amp; Buffer Management</h3>
+
+                {/* Frame Buffer Depth */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Frame Buffer Size (Queue Depth)</label>
+                  <div className="settings-chip-row">
+                    {FRAME_BUFFER_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`settings-chip ${settings.frameBufferDepth === opt.value ? "active" : ""}`}
+                        onClick={() => handleChange("frameBufferDepth", opt.value)}
+                        title={opt.description}
+                      >
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Fewer frames = lower input lag. More frames = smoother playback. 1 frame is recommended for most connections.
+                  </span>
+                </div>
+
+                {/* UDP Packet Pacing */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">UDP Packet Pacing</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.udpPacketPacing}
+                        onChange={(e) => handleChange("udpPacketPacing", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Smooths out UDP packet bursts. Recommended ON for Wi-Fi. Turn OFF for lowest latency on wired connections.
+                  </span>
+                </div>
+
+                {/* Force Codec */}
+                <div className="settings-row settings-row--column">
+                  <label className="settings-label">Force Codec</label>
+                  <div className="settings-chip-row">
+                    {FORCE_CODEC_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`settings-chip ${settings.forceCodec === opt.value ? "active" : ""}`}
+                        onClick={() => handleChange("forceCodec", opt.value)}
+                        title={opt.description}
+                      >
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Auto lets the client negotiate. H.264 has lowest decode latency on older CPUs. HEVC/AV1 give better quality-per-bit.
+                  </span>
+                </div>
+
+                {/* ── Ultra Settings ──────────────────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Ultra Settings</h3>
+
+                {/* LAN Mode */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">
+                        LAN Mode (Unlock Bitrate)
+                        <span className="settings-inline-badge settings-inline-badge--beta">Advanced</span>
+                      </span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.lanMode}
+                        onChange={(e) => handleChange("lanMode", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Unlocks bitrate ceiling to 200 Mbps. For 4K/240Hz on fast wired connections. Overkill for most — eliminates macroblocking in dark scenes.
+                  </span>
+                </div>
+
+                {/* Super-Sampling */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">
+                        Internal Super-Sampling
+                        <span className="settings-inline-badge settings-inline-badge--beta">Advanced</span>
+                      </span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.superSampling}
+                        onChange={(e) => handleChange("superSampling", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  {settings.superSampling && (
+                    <div className="settings-chip-row" style={{ marginTop: 6 }}>
+                      {SUPER_SAMPLING_RESOLUTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          className={`settings-chip ${settings.superSamplingResolution === opt.value ? "active" : ""}`}
+                          onClick={() => handleChange("superSamplingResolution", opt.value)}
+                        >
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <span className="settings-subtle-hint">
+                    Request a higher-res stream than your display, downscaled locally. Acts as massive anti-aliasing boost. Uses more bandwidth.
+                  </span>
+                </div>
+
+                {/* ── Telemetry Overlays ──────────────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Technical Telemetry</h3>
+
+                {/* Frame-Time Graph */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Frame-Time Graph</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.showFrameTimeGraph}
+                        onChange={(e) => handleChange("showFrameTimeGraph", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Scrolling graph of frame-time variance and network jitter. Helps identify whether stutter is from ISP or GFN server.
+                  </span>
+                </div>
+
+                {/* Decode Latency Monitor */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Decode Latency Monitor</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.showDecodeLatency}
+                        onChange={(e) => handleChange("showDecodeLatency", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Shows how long your local hardware takes to decode each frame. High values mean your decoder is the bottleneck.
+                  </span>
+                </div>
+
+                {/* Network Jitter */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Network Jitter Indicator</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.showNetworkJitter}
+                        onChange={(e) => handleChange("showNetworkJitter", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Displays network jitter (packet arrival variance). High jitter indicates unstable connection regardless of bandwidth.
+                  </span>
+                </div>
+
+                {/* ── Display Control ─────────────────────────────── */}
+
+                <div className="settings-section-divider" />
+                <h3 className="settings-sub-heading">Display Control</h3>
+
+                {/* Integer Scaling */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top settings-row-top--compact">
+                    <label className="settings-label settings-label--wrap">
+                      <span className="settings-label-title">Integer Scaling</span>
+                    </label>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.integerScaling}
+                        onChange={(e) => handleChange("integerScaling", e.target.checked)}
+                      />
+                      <span className="settings-toggle-track" />
+                    </label>
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Pixel-perfect scaling — keeps pixels sharp and blocky instead of bilinear-smeared. Best for custom/low resolutions.
+                  </span>
+                </div>
+
+                {/* Target Refresh Rate */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">Target Refresh Rate</label>
+                    <span className="settings-value-badge">{settings.targetRefreshRate === 0 ? "Auto" : `${settings.targetRefreshRate} Hz`}</span>
+                  </div>
+                  <div className="settings-chip-row">
+                    {REFRESH_RATE_OPTIONS.map((hz) => (
+                      <button
+                        key={hz}
+                        className={`settings-chip ${settings.targetRefreshRate === hz ? "active" : ""}`}
+                        onClick={() => handleChange("targetRefreshRate", hz)}
+                      >
+                        <span>{hz === 0 ? "Auto" : `${hz} Hz`}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Hint to the server about your display's refresh rate. Auto matches your FPS setting.
+                  </span>
+                </div>
+
+                {/* FPS Limiter */}
+                <div className="settings-row settings-row--column">
+                  <div className="settings-row-top">
+                    <label className="settings-label">FPS Limiter</label>
+                    <span className="settings-value-badge">{settings.fpsLimiter === 0 ? "Unlimited" : `${settings.fpsLimiter} FPS`}</span>
+                  </div>
+                  <div className="settings-chip-row">
+                    {FPS_LIMITER_OPTIONS.map((fps) => (
+                      <button
+                        key={fps}
+                        className={`settings-chip ${settings.fpsLimiter === fps ? "active" : ""}`}
+                        onClick={() => handleChange("fpsLimiter", fps)}
+                      >
+                        <span>{fps === 0 ? "Unlimited" : `${fps}`}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="settings-subtle-hint">
+                    Client-side FPS cap. Useful if your display runs at a lower rate than the stream to save bandwidth.
                   </span>
                 </div>
               </div>

@@ -3258,6 +3258,20 @@ button.game-card-store-chip.owned.active:hover {
   color: var(--ink-muted);
 }
 
+.settings-section-divider {
+  border: none;
+  border-top: 1px solid var(--surface-raised);
+  margin: 12px 0 4px;
+}
+
+.settings-sub-heading {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 4px;
+  letter-spacing: 0.01em;
+}
+
 .settings-shortcut-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4679,6 +4693,57 @@ button.game-card-store-chip.owned.active:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Telemetry overlays (bottom-right) */
+.sv-telemetry {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(10, 10, 12, 0.88);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  backdrop-filter: blur(4px);
+  font-variant-numeric: tabular-nums;
+}
+
+.sv-telemetry-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+}
+
+.sv-telemetry-label {
+  color: var(--ink-muted);
+  font-weight: 500;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sv-telemetry-val {
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--ink);
+}
+
+.sv-frametime-graph {
+  position: fixed;
+  bottom: 80px;
+  right: 14px;
+  z-index: 1001;
+  padding: 6px 8px;
+  background: rgba(10, 10, 12, 0.88);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  backdrop-filter: blur(4px);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Controller indicator */

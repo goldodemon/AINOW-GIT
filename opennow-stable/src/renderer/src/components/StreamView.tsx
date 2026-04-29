@@ -67,6 +67,9 @@ interface StreamViewProps {
   subscriptionInfo: SubscriptionInfo | null;
   micTrack?: MediaStreamTrack | null;
   className?: string;
+  showFrameTimeGraph?: boolean;
+  showDecodeLatency?: boolean;
+  showNetworkJitter?: boolean;
 }
 
 function getRttColor(rttMs: number): string {
@@ -274,6 +277,90 @@ function StreamStatsHud({
           Lag source {getLagReasonLabel(stats.lagReason).toLowerCase()} · {stats.lagReasonDetail}
         </div>
       )}
+    </div>
+  );
+}
+
+function TelemetryOverlay({
+  diagnosticsStore,
+  showDecodeLatency,
+  showNetworkJitter,
+}: {
+  diagnosticsStore: StreamDiagnosticsStore;
+  showDecodeLatency: boolean;
+  showNetworkJitter: boolean;
+}): JSX.Element {
+  const stats = useStreamDiagnosticsStore(diagnosticsStore);
+  const decodeColor = getTimingColor(stats.decodeTimeMs, 8, 16);
+  const jitterColor = getTimingColor(stats.jitterMs, 5, 15);
+
+  return (
+    <div className="sv-telemetry">
+      {showDecodeLatency && (
+        <div className="sv-telemetry-item">
+          <span className="sv-telemetry-label">Decode</span>
+          <span className="sv-telemetry-val" style={{ color: decodeColor }}>
+            {stats.decodeTimeMs > 0 ? `${stats.decodeTimeMs.toFixed(1)}ms` : "--"}
+          </span>
+        </div>
+      )}
+      {showNetworkJitter && (
+        <div className="sv-telemetry-item">
+          <span className="sv-telemetry-label">Jitter</span>
+          <span className="sv-telemetry-val" style={{ color: jitterColor }}>
+            {stats.jitterMs > 0 ? `${stats.jitterMs.toFixed(1)}ms` : "--"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FRAME_TIME_GRAPH_SIZE = 90;
+
+function FrameTimeGraphOverlay({
+  diagnosticsStore,
+}: {
+  diagnosticsStore: StreamDiagnosticsStore;
+}): JSX.Element {
+  const stats = useStreamDiagnosticsStore(diagnosticsStore);
+  const historyRef = useRef<number[]>([]);
+
+  const frameTimeMs = stats.renderFps > 0 ? 1000 / stats.renderFps : 0;
+  historyRef.current.push(frameTimeMs);
+  if (historyRef.current.length > FRAME_TIME_GRAPH_SIZE) {
+    historyRef.current.shift();
+  }
+
+  const history = historyRef.current;
+  const maxVal = Math.max(33.3, ...history);
+  const graphW = 180;
+  const graphH = 50;
+  const barW = graphW / FRAME_TIME_GRAPH_SIZE;
+
+  return (
+    <div className="sv-frametime-graph">
+      <div className="sv-telemetry-label" style={{ marginBottom: 2 }}>Frame Time</div>
+      <svg width={graphW} height={graphH} style={{ display: "block" }}>
+        {history.map((val, i) => {
+          const h = (val / maxVal) * graphH;
+          const color = val < 12 ? "var(--success)" : val < 20 ? "var(--warning)" : "var(--error)";
+          return (
+            <rect
+              key={i}
+              x={i * barW}
+              y={graphH - h}
+              width={Math.max(barW - 0.5, 1)}
+              height={h}
+              fill={color}
+              opacity={0.85}
+            />
+          );
+        })}
+      </svg>
+      <div className="sv-telemetry-val" style={{ fontSize: "0.7rem", marginTop: 1 }}>
+        {frameTimeMs > 0 ? `${frameTimeMs.toFixed(1)}ms` : "--"} · {stats.jitterMs.toFixed(1)}ms jitter
+      </div>
     </div>
   );
 }
@@ -678,6 +765,9 @@ export function StreamView({
   micTrack,
   hideStreamButtons = false,
   className,
+  showFrameTimeGraph = false,
+  showDecodeLatency = false,
+  showNetworkJitter = false,
 }: StreamViewProps): JSX.Element {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showHints, setShowHints] = useState(true);
@@ -1942,6 +2032,18 @@ export function StreamView({
       {/* Stats HUD (top-right) */}
       {showStats && !isConnecting && (
         <StreamStatsHud diagnosticsStore={diagnosticsStore} serverRegion={serverRegion} />
+      )}
+
+      {/* Telemetry overlays (bottom-right) */}
+      {!isConnecting && (showDecodeLatency || showNetworkJitter) && (
+        <TelemetryOverlay
+          diagnosticsStore={diagnosticsStore}
+          showDecodeLatency={showDecodeLatency}
+          showNetworkJitter={showNetworkJitter}
+        />
+      )}
+      {!isConnecting && showFrameTimeGraph && (
+        <FrameTimeGraphOverlay diagnosticsStore={diagnosticsStore} />
       )}
 
       {/* Controller indicator (top-left) */}

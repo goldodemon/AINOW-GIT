@@ -99,7 +99,13 @@ export function colorQualityIs10Bit(cq: ColorQuality): boolean {
 }
 
 export type MicrophoneMode = "disabled" | "push-to-talk" | "voice-activity";
-export type AspectRatio = "16:9" | "16:10" | "21:9" | "32:9";
+export type AspectRatio = "16:9" | "16:10" | "21:9" | "32:9" | "4:3" | "5:4";
+export type StreamQualityPreset = "performance" | "balanced" | "quality" | "ultra" | "custom";
+export type ReflexMode = "auto" | "on" | "off";
+/** Frame buffer depth — lower = less lag, higher = smoother */
+export type FrameBufferDepth = 0 | 1 | 2;
+/** Forced codec selection — "auto" lets the client decide */
+export type ForceCodecMode = "auto" | "H264" | "H265" | "AV1";
 export type RuntimePlatform =
   | "aix"
   | "android"
@@ -179,6 +185,56 @@ export interface Settings {
   discordRichPresence: boolean;
   /** Automatically check GitHub Releases for app updates in the background */
   autoCheckForUpdates: boolean;
+  /** Custom resolution mode — when true, the custom resolution string is used instead of presets */
+  customResolutionEnabled: boolean;
+  /** Custom resolution string (e.g. "2560x1080") used when customResolutionEnabled is true */
+  customResolution: string;
+  /** Custom FPS mode — when true, the custom FPS value is used instead of presets */
+  customFpsEnabled: boolean;
+  /** Custom FPS value used when customFpsEnabled is true */
+  customFps: number;
+  /** Resolution scaling percentage (50–200). Applied as a multiplier to the effective resolution */
+  resolutionScale: number;
+  /** NVIDIA Reflex mode: auto (enabled at >=120fps), on (always), off (never) */
+  reflexMode: ReflexMode;
+  /** Enable HDR streaming (may cause resolution downscaling on some servers) */
+  enableHdr: boolean;
+  /** Active stream quality preset (custom = manual settings) */
+  streamQualityPreset: StreamQualityPreset;
+
+  // ── Network & Buffer ──────────────────────────────────────────
+  /** Frame buffer depth: 0 = lowest latency, 2 = smoothest */
+  frameBufferDepth: FrameBufferDepth;
+  /** Smooth out UDP packet bursts (helps unstable Wi-Fi) */
+  udpPacketPacing: boolean;
+  /** Force a specific codec instead of auto-negotiation */
+  forceCodec: ForceCodecMode;
+
+  // ── Ultra Settings ────────────────────────────────────────────
+  /** LAN Mode: unlock bitrate ceiling to 200 Mbps */
+  lanMode: boolean;
+  /** Super-sampling: request higher resolution than local display for AA boost */
+  superSampling: boolean;
+  /** Super-sampling target resolution (e.g. "3840x2160") */
+  superSamplingResolution: string;
+
+  // ── Telemetry ─────────────────────────────────────────────────
+  /** Show frame-time variance graph overlay */
+  showFrameTimeGraph: boolean;
+  /** Show decode latency counter overlay */
+  showDecodeLatency: boolean;
+  /** Show network jitter indicator overlay */
+  showNetworkJitter: boolean;
+
+  // ── Display Control ───────────────────────────────────────────
+  /** Integer scaling: sharp pixel-perfect upscale instead of bilinear */
+  integerScaling: boolean;
+  /** Target display refresh rate hint for the server (0 = auto) */
+  targetRefreshRate: number;
+  /** Client-side FPS limiter (0 = unlimited) */
+  fpsLimiter: number;
+
+  // ── AINOW Cloud Features ──────────────────────────────────────
   /** Active stream quality preset (AINOW cloud feature) */
   streamPreset: import("./cloudFeatures").StreamPresetId;
   /** Enable automatic reconnection after connection drops */
@@ -481,6 +537,24 @@ export interface StreamSettings {
   enableL4S: boolean;
   /** Request Cloud G-Sync / Variable Refresh Rate on new sessions */
   enableCloudGsync: boolean;
+  /** NVIDIA Reflex mode: auto (enabled at >=120fps), on (always), off (never) */
+  reflexMode: ReflexMode;
+  /** Enable HDR streaming */
+  enableHdr: boolean;
+  /** Frame buffer depth hint */
+  frameBufferDepth: FrameBufferDepth;
+  /** UDP packet pacing toggle */
+  udpPacketPacing: boolean;
+  /** Force codec override */
+  forceCodec: ForceCodecMode;
+  /** LAN Mode: unlock bitrate ceiling */
+  lanMode: boolean;
+  /** Integer scaling hint */
+  integerScaling: boolean;
+  /** Target display refresh rate (0 = auto) */
+  targetRefreshRate: number;
+  /** Client-side FPS limiter (0 = unlimited) */
+  fpsLimiter: number;
 }
 
 export interface SessionCreateRequest {

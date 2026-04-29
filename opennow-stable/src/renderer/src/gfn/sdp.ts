@@ -410,6 +410,14 @@ interface NvstParams {
   hidDeviceMask?: number;
   enablePartiallyReliableTransferGamepad?: number;
   enablePartiallyReliableTransferHid?: number;
+  /** Frame buffer depth: 0 = lowest latency, 2 = smoothest */
+  frameBufferDepth?: number;
+  /** Enable smoothed packet pacing */
+  udpPacketPacing?: boolean;
+  /** Integer scaling mode */
+  integerScaling?: boolean;
+  /** Target display refresh rate (0 = auto) */
+  targetRefreshRate?: number;
 }
 
 /**
@@ -544,8 +552,12 @@ export function buildNvstSdp(params: NvstParams): string {
     "a=vqos.resControl.cpmRtc.resolutionChangeHoldonMs:999999",
     // Packet pacing
     `a=packetPacing.numGroups:${is120Fps ? 3 : 5}`,
-    "a=packetPacing.maxDelayUs:1000",
+    `a=packetPacing.maxDelayUs:${params.udpPacketPacing === false ? 0 : 1000}`,
     "a=packetPacing.minNumPacketsFrame:10",
+    // Frame buffer depth (0 = lowest latency, 2 = smoother)
+    `a=video.minRequiredCapturedFrames:${params.frameBufferDepth ?? 1}`,
+    // Integer scaling hint
+    `a=video.integerScaling:${params.integerScaling ? 1 : 0}`,
     // NACK queue settings
     "a=video.rtpNackQueueLength:1024",
     "a=video.rtpNackQueueMaxPackets:512",
@@ -591,6 +603,9 @@ export function buildNvstSdp(params: NvstParams): string {
     `a=video.clientViewportWd:${params.width}`,
     `a=video.clientViewportHt:${params.height}`,
     `a=video.maxFPS:${params.fps}`,
+    ...(params.targetRefreshRate && params.targetRefreshRate > 0
+      ? [`a=video.clientRefreshRate:${params.targetRefreshRate}`]
+      : []),
     `a=video.initialBitrateKbps:${initialBitrate}`,
     `a=video.initialPeakBitrateKbps:${params.maxBitrateKbps}`,
     `a=vqos.bw.maximumBitrateKbps:${params.maxBitrateKbps}`,

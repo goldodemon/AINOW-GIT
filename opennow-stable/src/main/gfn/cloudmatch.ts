@@ -493,7 +493,7 @@ function buildSessionRequestBody(input: SessionCreateRequest): CloudMatchRequest
   // 10-bit color depth does NOT mean HDR — you can have 10-bit SDR.
   // Conflating them caused the server to set up an HDR pipeline, which
   // dynamically downscaled resolution to ~540p.
-  const hdrEnabled = false; // No HDR toggle implemented yet; hardcode off like claim body
+  const hdrEnabled = input.settings.enableHdr ?? false;
   const bitDepth = colorQualityBitDepth(cq);
   const chromaFormat = colorQualityChromaFormat(cq);
   const accountLinked = input.accountLinked ?? true;
@@ -558,7 +558,8 @@ function buildSessionRequestBody(input: SessionCreateRequest): CloudMatchRequest
       enablePersistingInGameSettings: true,
       userAge: 26,
       requestedStreamingFeatures: {
-        reflex: input.settings.fps >= 120,
+        reflex: input.settings.reflexMode === "on"
+          || (input.settings.reflexMode !== "off" && input.settings.fps >= 120),
         bitDepth,
         cloudGsync: input.settings.enableCloudGsync,
         enabledL4S: input.settings.enableL4S,
@@ -1311,6 +1312,15 @@ export async function claimSession(input: SessionClaimRequest): Promise<SessionI
     gameLanguage: "en_US",
     enableL4S: false,
     enableCloudGsync: false,
+    reflexMode: "auto",
+    enableHdr: false,
+    frameBufferDepth: 1,
+    udpPacketPacing: true,
+    forceCodec: "auto",
+    lanMode: false,
+    integerScaling: false,
+    targetRefreshRate: 0,
+    fpsLimiter: 0,
   };
   const keyboardLayout = resolveGfnKeyboardLayout(settings.keyboardLayout ?? DEFAULT_KEYBOARD_LAYOUT, process.platform);
   const languageCode = settings.gameLanguage ?? "en_US";
