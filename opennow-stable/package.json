@@ -48,8 +48,8 @@
     "vite": "^7.3.1"
   },
   "build": {
-    "appId": "com.zortos.opennow.stable",
-    "productName": "OpenNOW",
+    "appId": "com.ainow.desktop",
+    "productName": "AINOW",
     "publish": [
       {
         "provider": "github",
@@ -77,10 +77,10 @@
       ]
     },
     "nsis": {
-      "artifactName": "OpenNOW-v${version}-setup-${arch}.${ext}"
+      "artifactName": "AINOW-v${version}-setup-${arch}.${ext}"
     },
     "portable": {
-      "artifactName": "OpenNOW-v${version}-portable-${arch}.${ext}"
+      "artifactName": "AINOW-v${version}-portable-${arch}.${ext}"
     },
     "mac": {
       "target": [
@@ -88,7 +88,7 @@
         "zip"
       ],
       "category": "public.app-category.games",
-      "artifactName": "OpenNOW-v${version}-mac-${arch}.${ext}"
+      "artifactName": "AINOW-v${version}-mac-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -97,7 +97,7 @@
       ],
       "category": "Game",
       "maintainer": "zortos293 <zortos293@users.noreply.github.com>",
-      "artifactName": "OpenNOW-v${version}-linux-${arch}.${ext}"
+      "artifactName": "AINOW-v${version}-linux-${arch}.${ext}"
     }
   }
 }
